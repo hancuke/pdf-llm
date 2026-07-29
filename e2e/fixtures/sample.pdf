@@ -6,13 +6,14 @@ endobj
 << /Type /Pages /Kids [3 0 R] /Count 1 >>
 endobj
 3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 820] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 115 >>
+<< /Length 252 >>
 stream
-BT /F1 40 Tf 50 700 Td (Hello PDF-LLM) Tj ET
-BT /F1 24 Tf 50 640 Td (This is a test paragraph for selection.) Tj ET
+BT /F1 18 Tf 40 740 Td (The quick brown fox jumps over the lazy dog selection) Tj ET
+BT /F1 18 Tf 40 700 Td (region based text gathering works across line ends now) Tj ET
+BT /F1 18 Tf 40 660 Td (double click still selects a single word as before) Tj ET
 endstream
 endobj
 5 0 obj
@@ -25,9 +26,9 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000241 00000 n 
-0000000407 00000 n 
+0000000544 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-477
+614
 %%EOF

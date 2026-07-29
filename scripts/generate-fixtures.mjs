@@ -13,13 +13,19 @@ obj(1, '<< /Type /Catalog /Pages 2 0 R >>')
 obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>')
 obj(
   3,
-  '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] ' +
+  '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 820] ' +
     '/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
 )
 
-const content =
-  'BT /F1 40 Tf 50 700 Td (Hello PDF-LLM) Tj ET\n' +
-  'BT /F1 24 Tf 50 640 Td (This is a test paragraph for selection.) Tj ET'
+// Multiple lines so the drag-selection test can cross a line boundary. The word
+// "selection" sits at the end of line 1 and "region" starts line 2, so a
+// rectangle spanning the line break must gather both.
+const line = (y, text) => `BT /F1 18 Tf 40 ${y} Td (${text}) Tj ET`
+const content = [
+  line(740, 'The quick brown fox jumps over the lazy dog selection'),
+  line(700, 'region based text gathering works across line ends now'),
+  line(660, 'double click still selects a single word as before'),
+].join('\n')
 obj(4, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`)
 obj(5, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
 

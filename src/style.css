@@ -145,6 +145,33 @@ body {
   background: rgba(0, 113, 227, 0.35);
 }
 
+/* While drag-selecting, suppress the browser's native (broken) text selection
+   so only our geometric region rectangle is shown. */
+.pdf-page.selecting .pdf-text-layer {
+  user-select: none;
+}
+
+.pdf-drag-rect {
+  position: absolute;
+  border: 1px solid rgba(0, 113, 227, 0.9);
+  background: rgba(0, 113, 227, 0.12);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.pdf-highlights {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.pdf-highlight {
+  position: absolute;
+  background: rgba(255, 212, 0, 0.35);
+  border-radius: 2px;
+}
+
 .scanned-warning {
   background: #fff3cd;
   color: #7a5b00;
@@ -184,7 +211,6 @@ body {
 /* Action Sheet (iOS style) */
 .action-sheet {
   position: fixed;
-  transform: translate(-50%, -100%);
   z-index: 100;
   background: rgba(248, 248, 250, 0.92);
   backdrop-filter: blur(20px);
