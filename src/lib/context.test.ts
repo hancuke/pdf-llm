@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractContext, FALLBACK_SENTENCE_WINDOW } from './context'
+import { extractContext, findSelectionRange, FALLBACK_SENTENCE_WINDOW } from './context'
 
 describe('extractContext', () => {
   it('returns empty context for an empty / whitespace selection', () => {
@@ -82,5 +82,28 @@ describe('extractContext', () => {
     expect(result.contextText).toContain('第一句内容')
     expect(result.contextText).toContain('第五句内容')
     expect(result.contextText).toContain(target)
+  })
+})
+
+describe('findSelectionRange', () => {
+  it('locates an exact substring', () => {
+    const raw = 'Paragraph one line.\nParagraph two line.'
+    const range = findSelectionRange(raw, 'Paragraph two line.')
+    expect(range).toEqual({ start: 20, end: 39 })
+  })
+
+  it('locates when whitespace/line-breaks differ from the raw text', () => {
+    const raw = 'Hello world.\nThis is a test.'
+    // Selection string as the browser might return it (single line).
+    const range = findSelectionRange(raw, 'world. This')
+    expect(range).not.toBeNull()
+    const text = raw.slice(range!.start, range!.end)
+    expect(text.replace(/\s+/g, ' ').trim()).toBe('world. This')
+  })
+
+  it('returns null for text not present', () => {
+    expect(findSelectionRange('abc def', 'xyz')).toBeNull()
+    expect(findSelectionRange('', 'x')).toBeNull()
+    expect(findSelectionRange('abc', '   ')).toBeNull()
   })
 })

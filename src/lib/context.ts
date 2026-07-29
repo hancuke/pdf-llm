@@ -143,3 +143,54 @@ export function extractContext(
 
   return { selectedText, contextText }
 }
+
+/**
+ * Locate a user's selected text within the page's raw text and return the
+ * character range it occupies.
+ *
+ * This is more robust than mapping DOM selection offsets onto the flattened
+ * raw text: the browser's selection string can include line breaks or
+ * whitespace that differ from how the raw text was assembled, and pdf.js nests
+ * text spans in ways that make DOM-offset mapping unreliable. We instead use a
+ * direct match, falling back to a whitespace-normalised match so the selection
+ * is found even when breaks don't line up exactly. Returns null when the text
+ * cannot be located.
+ */
+export function findSelectionRange(
+  rawText: string,
+  selectedText: string,
+): SelectionRange | null {
+  const selected = selectedText.trim()
+  if (selected.length === 0) return null
+
+  const direct = rawText.indexOf(selected)
+  if (direct !== -1) return { start: direct, end: direct + selected.length }
+
+  // Whitespace (incl. newlines) normalised search.
+  const strip = (s: string) => s.replace(/\s+/g, '')
+  const nRaw = strip(rawText)
+  const nSel = strip(selected)
+  const nIndex = nRaw.indexOf(nSel)
+  if (nIndex === -1) return null
+
+  // Map normalised positions back to raw indices. normPos[i] is the index of
+  // raw char i within the whitespace-free string, or -1 for whitespace.
+  let pos = 0
+  const normPos: number[] = new Array(rawText.length)
+  for (let i = 0; i < rawText.length; i++) {
+    if (/\s/.test(rawText[i])) normPos[i] = -1
+    else {
+      normPos[i] = pos
+      pos += 1
+    }
+  }
+  const toRaw = (nPos: number): number => {
+    for (let i = 0; i < rawText.length; i++) if (normPos[i] === nPos) return i
+    return rawText.length
+  }
+
+  const start = toRaw(nIndex)
+  const end =
+    nIndex + nSel.length >= pos ? rawText.length : toRaw(nIndex + nSel.length)
+  return { start, end }
+}

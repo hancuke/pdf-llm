@@ -7,8 +7,8 @@ import { defineStore } from 'pinia'
 import { pdfjsLib } from '../lib/pdf'
 import { buildPageText } from '../lib/page-text'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
-import { extractContext } from '../lib/context'
-import type { ExtractedContext, SelectionRange } from '../lib/types'
+import { extractContext, findSelectionRange } from '../lib/context'
+import type { ExtractedContext } from '../lib/types'
 import { useConversationStore } from './conversation'
 
 /** A resolved Selection plus the page it came from. */
@@ -93,14 +93,29 @@ export const useReaderStore = defineStore('reader', {
     },
 
     /**
-     * Resolve and store the active Selection from a character range within a
-     * page's raw text. Delegates the domain rule to {@link extractContext}.
+     * Resolve and store the active Selection from the text the user actually
+     * selected (as returned by the browser). The range is located within the
+     * page's raw text via {@link findSelectionRange}, then the Context is
+     * extracted. If the selection can't be mapped, the selection text itself is
+     * still surfaced so the user can act on it.
      */
-    async setSelectionFromRange(
+    async setSelectionFromText(
       page: number,
-      range: SelectionRange,
+      selectedText: string,
     ): Promise<void> {
       const rawText = await this.getPageText(page)
+      const range = findSelectionRange(rawText, selectedText)
+
+      if (!range) {
+        const fallback = selectedText.trim()
+        this.currentSelection = {
+          page,
+          selectedText: fallback,
+          contextText: fallback,
+        }
+        return
+      }
+
       const result = extractContext(rawText, range)
       if (result.selectedText.length === 0) {
         this.currentSelection = null

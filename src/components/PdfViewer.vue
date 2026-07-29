@@ -2,7 +2,6 @@
 import { ref, reactive, onMounted, onBeforeUnmount, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { pdfjsLib } from '../lib/pdf'
-import { buildPageText } from '../lib/page-text'
 import { TextLayer } from 'pdfjs-dist'
 import type { PDFPageProxy } from 'pdfjs-dist'
 import { useReaderStore } from '../stores/reader'
@@ -17,14 +16,6 @@ const conversation = useConversationStore()
 
 const pagesEl = ref<HTMLElement | null>(null)
 
-// Per-page metadata needed to map a DOM selection back to a character range in
-// the page's raw text. Built during render, used on selection.
-interface PageMeta {
-  textDivs: HTMLElement[]
-  items: { str: string; leadingBreak: 0 | 1 | 2 }[]
-}
-const pageMeta = new Map<number, PageMeta>()
-
 interface SheetState {
   visible: boolean
   x: number
@@ -36,7 +27,6 @@ const { hasDocument, scannedWarning } = storeToRefs(reader)
 
 function clearPages() {
   if (pagesEl.value) pagesEl.value.innerHTML = ''
-  pageMeta.clear()
 }
 
 function computeScale(page: PDFPageProxy): number {
@@ -86,12 +76,6 @@ async function renderPage(page: PDFPageProxy, scale: number) {
   })
   await textLayer.render()
 
-  const { items } = buildPageText(textContent)
-  pageMeta.set(page.pageNumber, {
-    textDivs: textLayer.textDivs as HTMLElement[],
-    items,
-  })
-
   return wrapper
 }
 
@@ -104,56 +88,6 @@ async function renderAll() {
     const scale = computeScale(page)
     const wrapper = await renderPage(page, scale)
     pagesEl.value.appendChild(wrapper)
-  }
-}
-
-/** Absolute character offset of (node, offset) within a page's raw text. */
-function offsetOf(
-  node: Node,
-  offset: number,
-  wrapper: HTMLElement,
-  meta: PageMeta,
-): number | null {
-  // Climb from the (text) node up to the per-item text div that pdf.js created
-  // for it. The div is the element in meta.textDivs whose parent is the text
-  // layer container — NOT the container or the page wrapper.
-  let el: Node | null = node
-  let divEl: HTMLElement | null = null
-  while (el && el !== wrapper) {
-    if (el instanceof HTMLElement && meta.textDivs.includes(el)) {
-      divEl = el
-      break
-    }
-    el = el.parentNode
-  }
-  if (!divEl) return null
-  const divIndex = meta.textDivs.indexOf(divEl)
-  if (divIndex === -1) return null
-
-  let base = 0
-  for (let j = 0; j < divIndex; j++) {
-    base += meta.items[j].str.length + meta.items[j].leadingBreak
-  }
-  // pdf.js renders each item in a single text node, so offset maps directly.
-  return base + offset
-}
-
-function selectionRangeInPage(
-  wrapper: HTMLElement,
-): { page: number; range: { start: number; end: number } } | null {
-  const sel = window.getSelection()
-  if (!sel || sel.rangeCount === 0) return null
-  const page = Number(wrapper.dataset.page)
-  const meta = pageMeta.get(page)
-  if (!meta) return null
-
-  const range = sel.getRangeAt(0)
-  const start = offsetOf(range.startContainer, range.startOffset, wrapper, meta)
-  const end = offsetOf(range.endContainer, range.endOffset, wrapper, meta)
-  if (start === null || end === null) return null
-  return {
-    page,
-    range: { start: Math.min(start, end), end: Math.max(start, end) },
   }
 }
 
@@ -172,7 +106,7 @@ function onMouseUp() {
   setTimeout(handleSelection, 0)
 }
 
-function handleSelection() {
+async function handleSelection() {
   const sel = window.getSelection()
   if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
     hideSheet()
@@ -198,14 +132,17 @@ function handleSelection() {
     hideSheet()
     return
   }
+  const page = Number(wrapper.dataset.page)
 
-  const located = selectionRangeInPage(wrapper)
-  if (!located) {
+  // Resolve the Selection from the selected string (robust, whitespace-tolerant
+  // match) rather than fragile DOM offset mapping.
+  await reader.setSelectionFromText(page, text)
+
+  // If the selection couldn't be resolved, do not show the Action Sheet.
+  if (!reader.currentSelection) {
     hideSheet()
     return
   }
-
-  void reader.setSelectionFromRange(located.page, located.range)
 
   const rect = sel.getRangeAt(0).getBoundingClientRect()
   showSheetAt(rect.left + rect.width / 2, rect.top - 8)
