@@ -54,14 +54,22 @@ async function renderPage(page: PDFPageProxy, scale: number) {
   wrapper.style.width = `${viewport.width}px`
   wrapper.style.height = `${viewport.height}px`
 
-  // Canvas render.
+  // Render the canvas at device-pixel resolution so vector text stays crisp on
+  // HiDPI / Retina displays. The backing store is scaled by devicePixelRatio,
+  // while the CSS size stays at the logical viewport size; the text layer is
+  // positioned against that same logical viewport so it stays aligned.
+  const outputScale = Math.max(1, window.devicePixelRatio || 1)
+  const scaledViewport = page.getViewport({ scale: scale * outputScale })
+
   const canvas = document.createElement('canvas')
   canvas.className = 'pdf-canvas'
-  canvas.width = viewport.width
-  canvas.height = viewport.height
+  canvas.width = Math.floor(scaledViewport.width)
+  canvas.height = Math.floor(scaledViewport.height)
+  canvas.style.width = `${Math.floor(viewport.width)}px`
+  canvas.style.height = `${Math.floor(viewport.height)}px`
   const ctx = canvas.getContext('2d')
   if (ctx) {
-    await page.render({ canvasContext: ctx, viewport }).promise
+    await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise
   }
   wrapper.appendChild(canvas)
 

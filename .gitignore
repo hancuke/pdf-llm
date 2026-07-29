@@ -1,5 +1,11 @@
 .codebuddy
 node_modules/
 dist/
+public/standard_fonts/
+public/cmaps/
 *.local
 .DS_Store
+
+# Playwright artifacts
+test-results/
+playwright-report/

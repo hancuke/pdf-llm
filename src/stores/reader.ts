@@ -47,7 +47,14 @@ export const useReaderStore = defineStore('reader', {
   actions: {
     async loadFile(file: File): Promise<void> {
       const data = await file.arrayBuffer()
-      const task = pdfjsLib.getDocument({ data })
+      // Pass font/CMaps URLs per-document (the ESM module namespace is frozen,
+      // so they cannot be set globally). Served locally via public/ (offline).
+      const task = pdfjsLib.getDocument({
+        data,
+        standardFontDataUrl: '/standard_fonts/',
+        cMapUrl: '/cmaps/',
+        cMapPacked: true,
+      })
       pdfDocument = await task.promise
 
       this.fileName = file.name

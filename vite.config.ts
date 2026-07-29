@@ -12,6 +12,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    include: ['src/**/*.test.ts'],
+    exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
     pool: 'forks',
     poolOptions: {
       forks: { singleFork: true },
