@@ -55,9 +55,29 @@ function onPointerUp(e: PointerEvent): void {
 
 // Touch arbiter: swipe scrolls, long-press selects. See lib/longPressSelect.
 let detachLongPress: (() => void) | null = null
+// During a pinch the first finger still moves, which would otherwise drive the
+// selection plugin's drag-select. Toggle `enableSelection` off for the pinch
+// and back on afterwards. Reusing the exact panMode config keeps an existing
+// highlight (showSelectionRects) visible while zooming.
+const SELECTION_MODE = {
+  enableSelection: true,
+  showSelectionRects: true,
+  enableMarquee: false,
+} as const
 watch(elementRef, (el) => {
   detachLongPress?.()
-  detachLongPress = el ? attachLongPressSelect(el) : null
+  detachLongPress = el
+    ? attachLongPressSelect(el, {
+        onPinchStart: () =>
+          selection.value?.enableForMode(
+            'panMode',
+            { ...SELECTION_MODE, enableSelection: false },
+            props.documentId,
+          ),
+        onPinchEnd: () =>
+          selection.value?.enableForMode('panMode', SELECTION_MODE, props.documentId),
+      })
+    : null
 })
 
 onBeforeUnmount(() => {

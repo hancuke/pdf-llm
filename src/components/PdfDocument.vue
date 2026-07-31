@@ -212,7 +212,13 @@ onBeforeUnmount(() => {
 
 defineExpose({
   clearSelection(): void {
-    selection.value?.clear()
+    // Pass the active document id explicitly. Without it the selection
+    // capability falls back to `getActiveDocumentId()`, which throws
+    // "No active document" whenever the registry has no active doc (empty
+    // state, mid-load, or a stray mousedown on the viewer chrome). When there
+    // is no active document there is nothing to clear, so just bail out.
+    const id = props.activeDocumentId
+    if (id) selection.value?.clear(id)
   },
 })
 </script>

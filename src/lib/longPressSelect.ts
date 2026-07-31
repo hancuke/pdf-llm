@@ -47,6 +47,10 @@ export interface LongPressSelectOptions {
   moveTolerancePx?: number
   /** Called when the hold expires and the gesture becomes a selection. */
   onArm?: () => void
+  /** Called when a second finger lands — i.e. the gesture becomes a pinch. */
+  onPinchStart?: () => void
+  /** Called when the gesture drops back below two fingers (pinch ended). */
+  onPinchEnd?: () => void
 }
 
 /** True when a selection (and its action sheet) is already on screen. */
@@ -68,6 +72,7 @@ export function attachLongPressSelect(
   let start: { x: number; y: number; target: EventTarget | null } | null = null
   let armed = false
   let swallowClick = false
+  let pinching = false
 
   function disarm(): void {
     if (timer !== null) {
@@ -105,7 +110,16 @@ export function attachLongPressSelect(
 
   function onTouchStart(event: TouchEvent): void {
     disarm()
-    // Two fingers is a pinch — that belongs to the zoom gesture.
+    // Two or more fingers is a pinch — that belongs to the zoom gesture, not
+    // selection. Tell the host so it can suppress the selection plugin's own
+    // drag-select (the first finger's movement would otherwise start one).
+    if (event.touches.length >= 2) {
+      if (!pinching) {
+        pinching = true
+        options.onPinchStart?.()
+      }
+      return
+    }
     if (event.touches.length !== 1) return
     const touch = event.touches[0]
     start = { x: touch.clientX, y: touch.clientY, target: event.target }
@@ -127,8 +141,14 @@ export function attachLongPressSelect(
     if (Math.hypot(dx, dy) > tolerance) disarm()
   }
 
-  function onTouchEnd(): void {
+  function onTouchEnd(event: TouchEvent): void {
     disarm()
+    // Last finger lifted (or dropped back to one) → pinch is over, hand
+    // selection control back to the host.
+    if (pinching && event.touches.length < 2) {
+      pinching = false
+      options.onPinchEnd?.()
+    }
   }
 
   function onClickCapture(event: MouseEvent): void {
