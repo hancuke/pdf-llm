@@ -27,6 +27,7 @@
     "@embedpdf/plugin-scroll": "^2.14.4",
     "@embedpdf/plugin-selection": "^2.14.4",
     "@embedpdf/plugin-viewport": "^2.14.4",
+    "@embedpdf/plugin-zoom": "^2.14.4",
     "pinia": "^2.1.7",
     "vue": "^3.4.27"
   },

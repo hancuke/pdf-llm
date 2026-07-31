@@ -5,6 +5,7 @@ import { useConversationStore } from '../stores/conversation'
 import { useReaderStore } from '../stores/reader'
 import { useSettingsStore } from '../stores/settings'
 import { useUiStore } from '../stores/ui'
+import { downloadConversationMarkdown } from '../lib/exportConversation'
 
 const conversation = useConversationStore()
 const reader = useReaderStore()
@@ -27,20 +28,34 @@ function clearConversation() {
   conversation.clear()
   draft.value = ''
 }
+
+function exportConversation() {
+  downloadConversationMarkdown()
+}
 </script>
 
 <template>
   <section class="conversation">
     <header class="conv-header">
       <span class="conv-title">对话</span>
-      <button
-        v-if="active"
-        class="link-button"
-        type="button"
-        @click="clearConversation"
-      >
-        清空
-      </button>
+      <div class="conv-header-actions">
+        <button
+          v-if="active"
+          class="link-button"
+          type="button"
+          @click="exportConversation"
+        >
+          导出
+        </button>
+        <button
+          v-if="active"
+          class="link-button"
+          type="button"
+          @click="clearConversation"
+        >
+          清空
+        </button>
+      </div>
     </header>
 
     <div v-if="!active" class="conv-idle">

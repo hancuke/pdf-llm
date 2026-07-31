@@ -9,6 +9,11 @@ export const STORAGE_KEYS = {
   apiKey: `${PREFIX}apiKey`,
   model: `${PREFIX}model`,
   customActions: `${PREFIX}customActions`,
+  outlineOpen: `${PREFIX}outlineOpen`,
+  conversationOpen: `${PREFIX}conversationOpen`,
+  theme: `${PREFIX}theme`,
+  bookmarks: `${PREFIX}bookmarks`,
+  lastPositions: `${PREFIX}lastPositions`,
 } as const
 
 function hasLocalStorage(): boolean {
@@ -31,6 +36,17 @@ export function saveString(key: string, value: string): void {
   } catch {
     // Storage full or blocked (private mode) — degrade silently.
   }
+}
+
+export function loadBoolean(key: string, fallback: boolean): boolean {
+  if (!hasLocalStorage()) return fallback
+  const raw = localStorage.getItem(key)
+  if (raw === null) return fallback
+  return raw === 'true'
+}
+
+export function saveBoolean(key: string, value: boolean): void {
+  saveString(key, value ? 'true' : 'false')
 }
 
 export function loadJson<T>(key: string, fallback: T): T {

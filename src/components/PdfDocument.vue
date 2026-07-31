@@ -16,22 +16,86 @@ import {
   DocumentContent,
 } from '@embedpdf/plugin-document-manager/vue'
 import { useSelectionCapability } from '@embedpdf/plugin-selection/vue'
+import { useScrollCapability } from '@embedpdf/plugin-scroll/vue'
+import { useZoomCapability } from '@embedpdf/plugin-zoom/vue'
 import { Viewport } from '@embedpdf/plugin-viewport/vue'
 import { Scroller } from '@embedpdf/plugin-scroll/vue'
 import { PagePointerProvider } from '@embedpdf/plugin-interaction-manager/vue'
 import { RenderLayer } from '@embedpdf/plugin-render/vue'
 import { SelectionLayer } from '@embedpdf/plugin-selection/vue'
 import { useReaderStore } from '../stores/reader'
+import { useUiStore } from '../stores/ui'
+import { useBookmarkStore } from '../stores/bookmarks'
+import {
+  setScrollCapability,
+  setZoomCapability,
+  getReadingPosition,
+  jumpToPage,
+} from '../lib/viewer'
+import type { ScrollCapability } from '@embedpdf/plugin-scroll'
+import type { ZoomCapability } from '@embedpdf/plugin-zoom'
 
 const props = defineProps<{ activeDocumentId: string | null }>()
 
 const reader = useReaderStore()
+const ui = useUiStore()
+const bookmarks = useBookmarkStore()
 const emit = defineEmits<{
   (e: 'selection', page: number, text: string, x: number, y: number): void
 }>()
 
 const { provides: docManager } = useDocumentManagerCapability()
 const { provides: selection } = useSelectionCapability()
+const { provides: scroll } = useScrollCapability()
+const { provides: zoom } = useZoomCapability()
+
+// --- Wire scroll + zoom capabilities into the app-wide bridge -------------
+// Subscriptions are torn down on unmount and re-created if the capability
+// changes, so remounts never double-subscribe.
+let scrollUnsubs: Array<() => void> = []
+let zoomUnsubs: Array<() => void> = []
+let lastPositionSavedAt = 0
+
+function wireScroll(cap: ScrollCapability): void {
+  scrollUnsubs.forEach((u) => u())
+  scrollUnsubs = []
+  setScrollCapability(cap)
+  // Keep the toolbar's current-page readout in sync (reactive).
+  scrollUnsubs.push(
+    cap.onPageChange((event) => ui.setCurrentPage(event.pageNumber)),
+  )
+  // Throttled auto-save of the reading position for resume-on-reopen (ADR-0006).
+  scrollUnsubs.push(
+    cap.onScroll(() => {
+      const now = Date.now()
+      if (now - lastPositionSavedAt < 800) return
+      lastPositionSavedAt = now
+      const pos = getReadingPosition()
+      if (pos) bookmarks.setLastPosition(reader.fileName, pos)
+    }),
+  )
+  // Restore the saved position once, on the first layout after load.
+  scrollUnsubs.push(
+    cap.onLayoutReady((event) => {
+      if (!event.isInitial) return
+      const saved = bookmarks.getLastPosition(reader.fileName)
+      if (saved) jumpToPage(saved.pageIndex, saved.alignY)
+    }),
+  )
+}
+
+function wireZoom(cap: ZoomCapability): void {
+  zoomUnsubs.forEach((u) => u())
+  zoomUnsubs = []
+  setZoomCapability(cap)
+  ui.setZoom(cap.getState().currentZoomLevel)
+  zoomUnsubs.push(
+    cap.onZoomChange((event) => ui.setZoom(event.newZoom)),
+  )
+}
+
+watch(scroll, (cap) => cap && wireScroll(cap), { immediate: true })
+watch(zoom, (cap) => cap && wireZoom(cap), { immediate: true })
 
 // Tracks which document id we've already wired (selection mode + attach) so a
 // remount doesn't redo it. Module-scoped so it survives component remounts.
@@ -75,6 +139,8 @@ watch(
     // requires an active document to already be set.
     selection.value?.enableForMode('pointerMode', { enableSelection: true }, id)
     await reader.attachDocument(doc)
+    // Load the embedded 目录 (Outline) for the left panel.
+    await reader.loadOutline()
   },
   { immediate: true },
 )
@@ -105,6 +171,12 @@ function onViewportMouseUp(e: MouseEvent): void {
 
 onBeforeUnmount(() => {
   unsubscribeEnd?.()
+  scrollUnsubs.forEach((u) => u())
+  zoomUnsubs.forEach((u) => u())
+  scrollUnsubs = []
+  zoomUnsubs = []
+  setScrollCapability(null)
+  setZoomCapability(null)
 })
 
 defineExpose({

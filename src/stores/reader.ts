@@ -13,6 +13,8 @@ import { buildPageText } from '../lib/page-text'
 import type { PdfDocumentObject } from '@embedpdf/models'
 import { extractContext, findSelectionRange } from '../lib/context'
 import type { ExtractedContext } from '../lib/types'
+import { flattenOutline, type OutlineItem } from '../lib/outline'
+import { normalizeSearchResults, type SearchHit } from '../lib/search'
 import { useConversationStore } from './conversation'
 
 /** A resolved Selection plus the page it came from. */
@@ -26,7 +28,17 @@ interface ReaderState {
   /** null until the first page has been inspected. */
   hasTextLayer: boolean | null
   scannedWarning: boolean
+  /** True while a newly selected file is being opened/parsed. */
+  isLoading: boolean
   currentSelection: ActiveSelection | null
+  /** Flattened 目录 (Outline) entries for the open document. */
+  outline: OutlineItem[]
+  /** Current in-PDF search query. */
+  searchQuery: string
+  /** Normalized search hits for the current query. */
+  searchResults: SearchHit[]
+  /** True while a search is running. */
+  searching: boolean
 }
 
 // The bytes of a pending file live outside reactive state until the viewer's
@@ -42,6 +54,11 @@ export const useReaderStore = defineStore('reader', {
     hasTextLayer: null,
     scannedWarning: false,
     currentSelection: null,
+    isLoading: false,
+    outline: [],
+    searchQuery: '',
+    searchResults: [],
+    searching: false,
   }),
 
   getters: {
@@ -62,6 +79,11 @@ export const useReaderStore = defineStore('reader', {
       this.scannedWarning = false
       this.hasTextLayer = null
       this.numPages = 0
+      this.isLoading = true
+      this.outline = []
+      this.searchQuery = ''
+      this.searchResults = []
+      this.searching = false
       pageTextCache.clear()
       setActiveDocument(null)
       // Opening a new document clears the previous Conversation so context
@@ -88,6 +110,7 @@ export const useReaderStore = defineStore('reader', {
       const firstPageText = await this.getPageText(1)
       this.hasTextLayer = firstPageText.trim().length > 0
       this.scannedWarning = !this.hasTextLayer
+      this.isLoading = false
     },
 
     /** Raw text of a page, computed once and cached (used for Context). */
@@ -153,6 +176,52 @@ export const useReaderStore = defineStore('reader', {
 
     clearSelection(): void {
       this.currentSelection = null
+    },
+
+    /**
+     * Load the document's embedded 目录 (Outline) via the engine's bookmark API
+     * and flatten it for the left panel. Failures (unsupported / missing
+     * outline) degrade to an empty list.
+     */
+    async loadOutline(): Promise<void> {
+      const engine = getEngine()
+      const doc = getActiveDocument()
+      if (!engine || !doc) {
+        this.outline = []
+        return
+      }
+      try {
+        const { bookmarks } = await engine.getBookmarks(doc).toPromise()
+        this.outline = flattenOutline(bookmarks)
+      } catch {
+        this.outline = []
+      }
+    },
+
+    /** Run an in-PDF search and store normalized hits for the results panel. */
+    async runSearch(query: string): Promise<void> {
+      this.searchQuery = query
+      const engine = getEngine()
+      const doc = getActiveDocument()
+      const trimmed = query.trim()
+      if (!engine || !doc || !trimmed) {
+        this.searchResults = []
+        return
+      }
+      this.searching = true
+      try {
+        const result = await engine.searchAllPages(doc, trimmed).toPromise()
+        this.searchResults = normalizeSearchResults(result.results)
+      } catch {
+        this.searchResults = []
+      } finally {
+        this.searching = false
+      }
+    },
+
+    clearSearch(): void {
+      this.searchQuery = ''
+      this.searchResults = []
     },
   },
 })

@@ -10,11 +10,13 @@ import { ViewportPluginPackage } from '@embedpdf/plugin-viewport'
 import { ScrollPluginPackage } from '@embedpdf/plugin-scroll'
 import { RenderPluginPackage } from '@embedpdf/plugin-render'
 import { SelectionPluginPackage } from '@embedpdf/plugin-selection'
+import { ZoomPluginPackage } from '@embedpdf/plugin-zoom'
 import { wasmUrl, setEngine } from '../lib/pdf'
 import type { PdfEngine } from '@embedpdf/models'
 import { useReaderStore } from '../stores/reader'
 import { useSettingsStore } from '../stores/settings'
 import { useConversationStore } from '../stores/conversation'
+import { useUiStore } from '../stores/ui'
 import PdfDocument from './PdfDocument.vue'
 import ActionSheet from './ActionSheet.vue'
 import type { Action } from '../lib/actions'
@@ -22,6 +24,7 @@ import type { Action } from '../lib/actions'
 const reader = useReaderStore()
 const settings = useSettingsStore()
 const conversation = useConversationStore()
+const ui = useUiStore()
 const { hasDocument, scannedWarning } = storeToRefs(reader)
 
 const pdfDoc = ref<InstanceType<typeof PdfDocument> | null>(null)
@@ -45,6 +48,7 @@ const plugins = [
   createPluginRegistration(ScrollPluginPackage),
   createPluginRegistration(RenderPluginPackage),
   createPluginRegistration(SelectionPluginPackage),
+  createPluginRegistration(ZoomPluginPackage),
 ]
 
 // --- Action sheet ----------------------------------------------------------
@@ -108,11 +112,19 @@ async function onPickAction(action: Action) {
     selection.contextText,
     selection.selectedText,
   )
+  // The conversation panel may be hidden (reading mode); reveal it so the
+  // result is visible. Only open if currently hidden (Phase 2 decision:
+  // hide = reading mode, not "off") — never hide an already-visible panel.
+  if (!ui.conversationOpen) ui.toggleConversation()
 }
 </script>
 
 <template>
   <section class="pdf-viewer" @mousedown="onDocumentMouseDown">
+    <div v-if="reader.isLoading" class="pdf-loading">
+      <div class="spinner" />
+      <span>正在打开文档…</span>
+    </div>
     <div v-if="scannedWarning" class="scanned-warning">
       该 PDF 没有可提取的文本层（可能是扫描件 / 图片 PDF），本应用不支持选中与解释。
     </div>

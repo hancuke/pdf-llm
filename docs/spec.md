@@ -77,3 +77,49 @@ Test external behavior at the highest seams; do not test pdf.js DOM selection or
 - The seam tests (1–3) are sufficient to validate the core domain logic without a browser. The PdfViewer selection path should be covered by manual testing only.
 - CORS is a real constraint for browser-direct LLM calls; users pointing at endpoints without CORS headers must use a CORS-friendly or local endpoint. This is documented in-product (story 18) but cannot be fully solved client-side.
 - Glossary of terms used above (Document, Text Layer, Selection, Context, Context Fallback, Action Sheet, Quick Action, Custom Action, Conversation, Conversation History, Endpoint, API Key, Model) is defined in `CONTEXT.md`; architectural decisions in `docs/adr/0001`–`0005`; module/data-flow plan in `docs/technical-plan.md`.
+
+---
+
+# Phase 2 — 产品化（本轮迭代，由 /grill-with-docs 会话敲定）
+
+在保留首版纯客户端、不持久化内容（ADR-0001 / ADR-0004）的前提下，把产品从"能用"推向"像产品、现代化"。以下决策均已在会话中敲定。
+
+## 布局与导航（Locked Decisions）
+
+- **三栏可折叠布局**：`目录面板 | PDF 面板 | 对话面板`，三栏均可由顶部**工具栏**独立展开/收起；收起时其余栏自动占满宽度。
+- **目录面板（Outline）**：展示 PDF 自带的嵌入目录树（PDF 规范中的 "Bookmark"），**只读**；点击条目跳转到对应页。**不做**滚动联动高亮（scroll-spy）。
+- **书签面板**：目录面板以 Tab 形式提供第二栏 `目录 | 书签`。**书签**为用户自建的"位置记忆"，仅存页码+滚动位置，不含文字/对话；通过 `Cmd/Ctrl+D` 或书签按钮创建（**不在** LLM 操作菜单中）。书签与上次阅读位置写入 `localStorage`（见 ADR-0006）。
+- **对话面板显隐**：工具栏可 toggle 隐藏对话栏；隐藏态下一旦触发 LLM 操作则**自动重新展开**（隐藏=只读模式，而非"关闭"）。对话内容仍不持久化。
+
+## 工具栏内容
+
+常驻顶部：打开/文件名、目录开关、对话开关、缩放控件、跳页输入、主题切换、命令面板触发（`Cmd/Ctrl+K`）、设置入口。
+
+## 新增 User Stories（续）
+
+23. As a reader, I want a top toolbar with pane toggles and document controls, so that the app feels like a real product rather than a bare prototype.
+24. As a reader, I want the left panel to show the PDF's embedded Outline and jump to a section on click, so that I can navigate long docs without scrolling blindly.
+25. As a reader, I want to save a Bookmark (`Cmd/Ctrl+D`) that remembers a page + scroll position, so that I can return to it later across refreshes.
+26. As a reader, I want my last reading position per document remembered automatically, so that reopening resumes where I left off (positions only, no content persisted — ADR-0006).
+27. As a reader, I want in-PDF search (`Cmd/Ctrl+F`) with jump-to-match and highlight, so that I can locate text like in any real reader.
+28. As a reader, I want zoom and jump-to-page controls in the toolbar, so that I can control the reading view.
+29. As a reader, I want a light/dark/sepia theme that follows my OS setting, so that the app feels modern and is comfortable to read in.
+30. As a reader, I want keyboard shortcuts plus a command palette (`Cmd/Ctrl+K`) listing open/toggle/search/theme/export actions, so that power-user flows are fast.
+31. As a reader, I want to export/copy the current Conversation as Markdown, so that I can take LLM results with me (user-initiated; respects no-auto-persist).
+
+## Implementation Decisions（Phase 2）
+
+- **持久化分层（ADR-0006）**：坐标类状态（书签、上次位置、主题、面板显隐）写 `localStorage`；内容类状态（文档字节、Selection 摘录、Conversation）仍不持久化。书签存储 schema 不得被悄悄扩展为存摘录/对话。
+- **目录交互**：仅点击跳转，不实现 scroll-spy（已明确取舍，降低依赖与复杂度）。
+- **书签创建入口**：`Cmd/Ctrl+D` + 书签按钮，独立于 LLM Action Sheet。
+- **命令面板** 为统一入口，聚合工具栏所有动作（含打开文件、搜索、主题切换、导出对话）。
+- **现代化卫生项**（默认纳入，不单独决策）：空状态、加载骨架、面板展开/收起过渡动画。
+
+## Out of Scope（Phase 2）
+
+- 滚动联动高亮（scroll-spy）。
+- 持久化高亮/批注/对话（违反 ADR-0004 / ADR-0006 的内容分层原则）。
+- 云端同步、账号、跨设备。
+- 自动持久化文档字节（IndexedDB 存全文档）——如需"重开即恢复文档"须作为新 ADR 决策。
+- 多文档并发 / 标签页（首版仍单文档）。
+
