@@ -19,10 +19,7 @@ import { useSelectionCapability } from '@embedpdf/plugin-selection/vue'
 import { useScrollCapability } from '@embedpdf/plugin-scroll/vue'
 import { useZoomCapability } from '@embedpdf/plugin-zoom/vue'
 import { Viewport } from '@embedpdf/plugin-viewport/vue'
-import { Scroller } from '@embedpdf/plugin-scroll/vue'
-import { PagePointerProvider } from '@embedpdf/plugin-interaction-manager/vue'
-import { RenderLayer } from '@embedpdf/plugin-render/vue'
-import { SelectionLayer } from '@embedpdf/plugin-selection/vue'
+import PdfScroller from './PdfScroller.vue'
 import { useReaderStore } from '../stores/reader'
 import { useUiStore } from '../stores/ui'
 import { useBookmarkStore } from '../stores/bookmarks'
@@ -34,6 +31,7 @@ import {
 } from '../lib/viewer'
 import type { ScrollCapability } from '@embedpdf/plugin-scroll'
 import type { ZoomCapability } from '@embedpdf/plugin-zoom'
+import { ZoomMode } from '@embedpdf/plugin-zoom'
 
 const props = defineProps<{ activeDocumentId: string | null }>()
 
@@ -97,11 +95,24 @@ function wireZoom(cap: ZoomCapability): void {
 watch(scroll, (cap) => cap && wireScroll(cap), { immediate: true })
 watch(zoom, (cap) => cap && wireZoom(cap), { immediate: true })
 
+// --- Double-click / double-tap zoom toggle --------------------------------
+// Pinch + Ctrl/⌘-wheel are handled by the built-in `useZoomGesture` inside
+// PdfScroller (transform-preview, commit-on-end → smooth). Here we only add a
+// double-click toggle between fit-width and a comfortable reading zoom. This is a
+// single re-render, so it stays cheap.
+const READ_ZOOM = 1.6
+
+function onDblClickZoom(): void {
+  const z = zoom.value
+  if (!z || !props.activeDocumentId) return
+  const cur = z.getState().currentZoomLevel
+  const target = cur > 1.15 ? ZoomMode.FitWidth : READ_ZOOM
+  z.forDocument(props.activeDocumentId).requestZoom(target)
+}
+
 // Tracks which document id we've already wired (selection mode + attach) so a
 // remount doesn't redo it. Module-scoped so it survives component remounts.
 let attachedId: string | null = null
-
-const lastPointer = { x: 0, y: 0 }
 
 // --- Open the pending file whenever a new one is staged --------------------
 async function openPending(): Promise<void> {
@@ -145,32 +156,19 @@ watch(
   { immediate: true },
 )
 
-// --- Selection wiring -------------------------------------------------------
-let unsubscribeEnd: (() => void) | null = null
-
-function setupSelection(): void {
-  const sel = selection.value
-  if (!sel) return
-  if (unsubscribeEnd) unsubscribeEnd()
-  unsubscribeEnd = sel.onEndSelection(async () => {
-    const lines = await sel.getSelectedText().toPromise()
-    const text = lines.join('\n').trim()
-    if (!text) return
-    const formatted = sel.getFormattedSelection()
-    const pageIndex = formatted[0]?.pageIndex ?? 0
-    emit('selection', pageIndex + 1, text, lastPointer.x, lastPointer.y)
-  })
-}
-
-watch(selection, setupSelection, { immediate: true })
-
-function onViewportMouseUp(e: MouseEvent): void {
-  lastPointer.x = e.clientX
-  lastPointer.y = e.clientY
+// --- Selection bridge -------------------------------------------------------
+// The actual selection capture lives in PdfScroller (descendant of <Viewport>);
+// it re-emits here so the viewer (PdfViewer) can surface the Action Sheet.
+function onScrollerSelection(
+  page: number,
+  text: string,
+  x: number,
+  y: number,
+): void {
+  emit('selection', page, text, x, y)
 }
 
 onBeforeUnmount(() => {
-  unsubscribeEnd?.()
   scrollUnsubs.forEach((u) => u())
   zoomUnsubs.forEach((u) => u())
   scrollUnsubs = []
@@ -187,26 +185,17 @@ defineExpose({
 </script>
 
 <template>
-  <div class="pdf-viewport" @mouseup="onViewportMouseUp">
+  <div class="pdf-viewport" @dblclick="onDblClickZoom">
     <DocumentContent
       v-if="activeDocumentId"
       :document-id="activeDocumentId"
       v-slot="{ isLoaded }"
     >
       <Viewport v-if="isLoaded" :document-id="activeDocumentId">
-        <Scroller :document-id="activeDocumentId">
-          <template #default="{ page }">
-            <PagePointerProvider
-              :document-id="activeDocumentId"
-              :page-index="page.pageIndex"
-            >
-              <div class="pdf-page" :data-page="page.pageNumber + 1">
-                <RenderLayer :document-id="activeDocumentId" :page-index="page.pageIndex" />
-                <SelectionLayer :document-id="activeDocumentId" :page-index="page.pageIndex" />
-              </div>
-            </PagePointerProvider>
-          </template>
-        </Scroller>
+        <PdfScroller
+          :document-id="activeDocumentId"
+          @selection="onScrollerSelection"
+        />
       </Viewport>
     </DocumentContent>
   </div>

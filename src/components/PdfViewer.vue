@@ -56,8 +56,16 @@ interface SheetState {
   visible: boolean
   x: number
   y: number
+  originX: number
+  placement: 'above' | 'below'
 }
-const sheet = reactive<SheetState>({ visible: false, x: 0, y: 0 })
+const sheet = reactive<SheetState>({
+  visible: false,
+  x: 0,
+  y: 0,
+  originX: 0,
+  placement: 'above',
+})
 
 function hideSheet(): void {
   sheet.visible = false
@@ -65,10 +73,11 @@ function hideSheet(): void {
 }
 
 function showSheetAt(x: number, y: number): void {
-  // x = desired horizontal centre, y = selection top (viewport px). Position
-  // the sheet above the selection by default; flip below when it would overflow
-  // the top, and clamp inside the viewport so the action buttons are always
-  // reachable.
+  // x = desired horizontal centre of the selection, y = selection top (viewport
+  // px). Position the sheet above the selection by default, flipping below when
+  // it would overflow the top, and clamp inside the viewport so the action
+  // buttons are always reachable. `originX`/`placement` drive the pointer-arrow.
+  sheet.originX = x
   sheet.x = Math.max(8, Math.min(x, window.innerWidth - 8))
   sheet.y = Math.max(8, y)
   sheet.visible = true
@@ -78,9 +87,15 @@ function showSheetAt(x: number, y: number): void {
     const h = el.offsetHeight
     const w = el.offsetWidth
     let top = y - h - 8 // above the selection
-    if (top < 8) top = y + 8 // not enough room above → below the selection
+    let placement: 'above' | 'below' = 'above'
+    if (top < 8) {
+      // not enough room above → place below the selection
+      top = y + 8
+      placement = 'below'
+    }
     top = Math.max(8, Math.min(top, window.innerHeight - h - 8))
     const left = Math.max(8, Math.min(x - w / 2, window.innerWidth - w - 8))
+    sheet.placement = placement
     sheet.y = top
     sheet.x = left
   })
@@ -167,6 +182,8 @@ async function onPickAction(action: Action) {
       :selected-text="reader.currentSelection.selectedText"
       :x="sheet.x"
       :y="sheet.y"
+      :origin-x="sheet.originX"
+      :placement="sheet.placement"
       @pick="onPickAction"
       @close="hideSheet"
     />

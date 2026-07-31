@@ -1,0 +1,73 @@
+<script setup lang="ts">
+// Renders the scrollable page list *inside* <Viewport>. Two responsibilities:
+//   1. Wires the built-in smooth zoom gesture (pinch + Ctrl/⌘-wheel) via
+//      `useZoomGesture`. During a gesture it only applies a CSS transform to the
+//      already-rendered pages (GPU-composited, free) and commits the expensive
+//      re-render once at gesture end — this is what makes zoom feel fluid, and is
+//      the same technique the reference EmbedPDF demo uses.
+//   2. Bridges EmbedPDF's text-selection plugin to the parent so a Selection can
+//      be surfaced. Must live as a descendant of <Viewport> (which provides the
+//      "viewport-element" the gesture hook attaches to).
+import { watch, onBeforeUnmount } from 'vue'
+import { useSelectionCapability } from '@embedpdf/plugin-selection/vue'
+import { useZoomGesture } from '@embedpdf/plugin-zoom/vue'
+import { Scroller } from '@embedpdf/plugin-scroll/vue'
+import { PagePointerProvider } from '@embedpdf/plugin-interaction-manager/vue'
+import { RenderLayer } from '@embedpdf/plugin-render/vue'
+import { SelectionLayer } from '@embedpdf/plugin-selection/vue'
+
+const props = defineProps<{ documentId: string }>()
+const emit = defineEmits<{
+  (e: 'selection', page: number, text: string, x: number, y: number): void
+}>()
+
+const { elementRef } = useZoomGesture(() => props.documentId)
+
+const { provides: selection } = useSelectionCapability()
+
+let unsubscribeEnd: (() => void) | null = null
+const lastPointer = { x: 0, y: 0 }
+
+function setupSelection(): void {
+  const sel = selection.value
+  if (!sel) return
+  if (unsubscribeEnd) unsubscribeEnd()
+  unsubscribeEnd = sel.onEndSelection(async () => {
+    const lines = await sel.getSelectedText().toPromise()
+    const text = lines.join('\n').trim()
+    if (!text) return
+    const formatted = sel.getFormattedSelection()
+    const pageIndex = formatted[0]?.pageIndex ?? 0
+    emit('selection', pageIndex + 1, text, lastPointer.x, lastPointer.y)
+  })
+}
+
+watch(selection, setupSelection, { immediate: true })
+
+function onMouseUp(e: MouseEvent): void {
+  lastPointer.x = e.clientX
+  lastPointer.y = e.clientY
+}
+
+onBeforeUnmount(() => {
+  unsubscribeEnd?.()
+})
+</script>
+
+<template>
+  <div ref="elementRef" class="zoom-transform" @mouseup="onMouseUp">
+    <Scroller :document-id="documentId">
+      <template #default="{ page }">
+        <PagePointerProvider
+          :document-id="documentId"
+          :page-index="page.pageIndex"
+        >
+          <div class="pdf-page" :data-page="page.pageNumber + 1">
+            <RenderLayer :document-id="documentId" :page-index="page.pageIndex" />
+            <SelectionLayer :document-id="documentId" :page-index="page.pageIndex" />
+          </div>
+        </PagePointerProvider>
+      </template>
+    </Scroller>
+  </div>
+</template>

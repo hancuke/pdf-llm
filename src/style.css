@@ -15,6 +15,9 @@
   --viewer-bg: #525659;
   --shadow: rgba(0, 0, 0, 0.25);
   --hover: rgba(0, 0, 0, 0.05);
+  /* Frosted translucent bar (Apple nav bar) */
+  --bar-bg: rgba(255, 255, 255, 0.72);
+  --bar-border: rgba(0, 0, 0, 0.08);
 }
 
 [data-theme='dark'] {
@@ -30,6 +33,8 @@
   --viewer-bg: #2a2a2c;
   --shadow: rgba(0, 0, 0, 0.5);
   --hover: rgba(255, 255, 255, 0.08);
+  --bar-bg: rgba(28, 28, 30, 0.72);
+  --bar-border: rgba(255, 255, 255, 0.1);
 }
 
 [data-theme='sepia'] {
@@ -45,6 +50,8 @@
   --viewer-bg: #6b5d49;
   --shadow: rgba(60, 40, 20, 0.25);
   --hover: rgba(120, 80, 40, 0.1);
+  --bar-bg: rgba(251, 246, 233, 0.82);
+  --bar-border: rgba(120, 80, 40, 0.14);
 }
 
 html,
@@ -183,6 +190,13 @@ body {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 
+/* Wrapper that the smooth-zoom gesture transforms (inline-block so it sizes to
+   the page content; the gesture hook applies a CSS transform on top of it). */
+.zoom-transform {
+  display: inline-block;
+  overflow: visible;
+}
+
 /* The rendered page is a bitmap <img>. Dragging on it would otherwise start
    the browser's native image drag-and-drop, which fires `pointercancel` and
    suppresses `pointerup` — breaking EmbedPDF's pointer-based text selection.
@@ -232,47 +246,128 @@ body {
   font-size: 12px;
 }
 
-/* Action Sheet (iOS style) */
+/* Action Sheet → iOS floating bubble bar (callout). Content unchanged:
+   copy + LLM quick actions + cancel. Frosted glass, horizontal pill row. */
 .action-sheet {
   position: fixed;
-  z-index: 100;
-  background: var(--surface);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 10px 40px var(--shadow);
+  z-index: 160;
+  background: var(--bar-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid var(--bar-border);
+  border-radius: 16px;
+  box-shadow: 0 12px 34px var(--shadow), 0 2px 8px rgba(0, 0, 0, 0.12);
   padding: 6px;
-  min-width: 200px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  max-width: min(92vw, 560px);
+  color: var(--text);
+  animation: sheet-in 0.14s ease-out;
+}
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.action-list {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.action-list::-webkit-scrollbar {
+  display: none;
 }
 .action-item {
+  flex: 0 0 auto;
   border: none;
   background: transparent;
-  padding: 11px 14px;
-  font-size: 15px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
   text-align: left;
   border-radius: 10px;
   cursor: pointer;
-  color: #0071e3;
-  display: flex;
+  color: var(--text);
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
+  transition: background 0.15s ease;
 }
 .action-item:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--hover);
+}
+.action-item:active {
+  background: rgba(0, 0, 0, 0.1);
+}
+.action-icon {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  color: var(--accent);
+}
+.action-icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+.action-label {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  white-space: nowrap;
 }
 .action-item.cancel {
-  color: #ff3b30;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-  margin-top: 4px;
+  margin: 0 0 0 2px;
+  padding-left: 14px;
+  border-left: 1px solid var(--bar-border);
+  border-radius: 10px;
+  color: var(--text-muted);
+}
+.action-item.cancel .action-icon {
+  color: var(--text-muted);
 }
 .badge {
+  flex: 0 0 auto;
   font-size: 11px;
-  color: #86868b;
-  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-muted);
+  background: var(--surface-2);
   border-radius: 6px;
   padding: 1px 6px;
+}
+
+/* Pointer arrow toward the selection */
+.action-arrow {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+.action-sheet.above .action-arrow {
+  bottom: -7px;
+  border-top: none;
+  border-left: none;
+}
+.action-sheet.below .action-arrow {
+  top: -7px;
+  border-bottom: none;
+  border-right: none;
 }
 
 /* Conversation panel */
@@ -614,22 +709,45 @@ body {
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 8px 14px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
+  gap: 14px;
+  padding: 9px 18px;
+  background: var(--bar-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--bar-border);
+  flex-wrap: nowrap;
 }
+/* Visual divider between toolbar groups (Apple segmented feel). */
 .tb-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+.tb-group + .tb-group:not(.tb-right)::before {
+  content: '';
+  width: 1px;
+  height: 20px;
+  background: var(--bar-border);
+  margin-right: 8px;
 }
 .tb-right {
   margin-left: auto;
 }
 .tb-brand {
   gap: 10px;
+}
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), #42a5f5);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  flex: 0 0 auto;
 }
 .file-name {
   font-size: 13px;
@@ -640,13 +758,15 @@ body {
   white-space: nowrap;
 }
 .tb-button {
-  background: var(--surface-2);
+  background: transparent;
   color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 12px;
+  border: none;
+  border-radius: 980px;
+  padding: 6px 14px;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 .tb-button:hover {
   background: var(--hover);
@@ -654,17 +774,20 @@ body {
 .tb-button.active {
   background: var(--accent);
   color: #fff;
-  border-color: var(--accent);
 }
 .tb-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
+  width: 30px;
+  height: 30px;
+  border-radius: 980px;
+  border: none;
+  background: transparent;
   color: var(--text);
   font-size: 16px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
 }
 .tb-icon:hover {
   background: var(--hover);
@@ -674,25 +797,78 @@ body {
   min-width: 42px;
   text-align: center;
   color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 .goto {
   display: flex;
   align-items: center;
   gap: 4px;
+  background: var(--surface-2);
+  border-radius: 980px;
+  padding: 2px 8px;
 }
 .goto-input {
-  width: 52px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 4px 6px;
-  background: var(--surface);
+  width: 40px;
+  border: none;
+  background: transparent;
   color: var(--text);
   font-size: 13px;
+  text-align: center;
+  padding: 3px 0;
 }
 .goto-total,
 .current-page {
   font-size: 12px;
   color: var(--text-muted);
+}
+
+/* ----------------------------------------------------------------------- */
+/* Bottom Tab bar (mobile, iOS style)                                       */
+/* ----------------------------------------------------------------------- */
+.bottom-tabbar {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 125;
+  height: calc(52px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--bar-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--bar-border);
+  align-items: stretch;
+}
+.tab {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 6px 0;
+  transition: color 0.15s ease;
+}
+.tab.active {
+  color: var(--accent);
+}
+.tab-icon {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+}
+.tab-icon svg {
+  width: 24px;
+  height: 24px;
+}
+.tab-label {
+  line-height: 1;
 }
 
 /* ----------------------------------------------------------------------- */
@@ -959,4 +1135,143 @@ body {
   gap: 4px;
   font-size: 13px;
   cursor: pointer;
+}
+
+/* ----------------------------------------------------------------------- */
+/* Mobile / responsive adaptation                                            */
+/* ----------------------------------------------------------------------- */
+.pane-scrim {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Toolbar collapses to brand + file name (left) and theme toggle (right);
+     the rest of the controls move to the bottom Tab bar. */
+  .toolbar {
+    padding: 8px 12px;
+    gap: 10px;
+  }
+  .tb-hide-mobile {
+    display: none !important;
+  }
+  .file-name {
+    max-width: 140px;
+  }
+  .app-main {
+    padding-bottom: calc(52px + env(safe-area-inset-bottom));
+  }
+  /* Reveal the bottom Tab bar on mobile. */
+  .bottom-tabbar {
+    display: flex;
+  }
+
+  /* Side panes become bottom drawers over the reader (consistent with the
+     selection bar / sheet language, and thumb-reachable). The open drawer
+     covers the Tab bar (z 130 > 125) like an iOS modal sheet. */
+  .left-pane,
+  .conv-pane {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
+    max-width: 100%;
+    z-index: 130;
+    border: none;
+    border-top: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.28);
+    transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    transform: translateY(100%);
+  }
+  .left-pane {
+    height: 72vh;
+    max-height: 72vh;
+  }
+  .conv-pane {
+    height: 88vh;
+    max-height: 88vh;
+  }
+  .left-pane:not(.collapsed),
+  .conv-pane:not(.collapsed) {
+    transform: translateY(0);
+  }
+  /* When "collapsed" on mobile, keep sized but parked off-screen below. */
+  .left-pane.collapsed,
+  .conv-pane.collapsed {
+    width: 100%;
+    min-width: 0;
+    opacity: 1;
+    transform: translateY(100%);
+  }
+  /* Grab handle. */
+  .left-pane::before,
+  .conv-pane::before {
+    content: '';
+    position: sticky;
+    top: 0;
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--text-muted);
+    opacity: 0.4;
+    margin: 8px auto 4px;
+    z-index: 2;
+  }
+
+  /* Scrim behind the open drawer. */
+  .pane-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 120;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Phones: selection bubble bar becomes an icon-only pill pinned above the
+     selection — a floating callout, NOT a bottom sheet — so it never competes
+     with the outline/conversation bottom drawers. */
+  .action-sheet {
+    flex-direction: row;
+    max-width: 92vw;
+    min-width: 0;
+    padding: 6px;
+    border-radius: 999px;
+    overflow: visible;
+    animation: sheet-in 0.14s ease-out;
+  }
+  .action-list {
+    gap: 2px;
+    overflow-x: auto;
+  }
+  .action-item {
+    flex: 0 0 auto;
+    padding: 11px;
+    border-radius: 999px;
+  }
+  .action-label {
+    display: none;
+  }
+  .action-item.cancel {
+    margin-left: 2px;
+    padding: 11px;
+    border-left: 1px solid var(--bar-border);
+    border-radius: 999px;
+  }
+}
+
+/* Medium widths (tablet / narrow desktop): shed the keyboard-only command
+   palette and the page-number readout so the single-row Apple toolbar keeps
+   its clean, unclipped silhouette before the mobile Tab bar takes over. */
+@media (max-width: 900px) {
+  .tb-hide-md {
+    display: none !important;
+  }
+  .current-page {
+    display: none;
+  }
 }

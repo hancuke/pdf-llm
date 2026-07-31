@@ -49,8 +49,9 @@ function gotoPage() {
 <template>
   <header class="toolbar">
     <div class="tb-group tb-brand">
-      <span class="brand-name">PDF-LLM</span>
-      <button class="tb-button" type="button" @click="openFileDialog">打开</button>
+      <span class="brand-mark">P</span>
+      <span class="brand-name tb-hide-mobile">PDF-LLM</span>
+      <button class="tb-button tb-hide-mobile" type="button" @click="openFileDialog">打开</button>
       <input
         ref="fileInput"
         type="file"
@@ -63,7 +64,7 @@ function gotoPage() {
       </span>
     </div>
 
-    <div class="tb-group">
+    <div class="tb-group tb-hide-mobile">
       <button
         class="tb-button"
         type="button"
@@ -92,13 +93,13 @@ function gotoPage() {
       </button>
     </div>
 
-    <div class="tb-group">
+    <div class="tb-group tb-hide-mobile">
       <button class="tb-icon" type="button" title="缩小" @click="applyZoom(-1)">
-        −
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg>
       </button>
       <span class="zoom-label">{{ zoomPercent }}%</span>
       <button class="tb-icon" type="button" title="放大" @click="applyZoom(1)">
-        +
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
       <div class="goto">
         <input
@@ -117,7 +118,7 @@ function gotoPage() {
 
     <div class="tb-group tb-right">
       <button
-        class="tb-button"
+        class="tb-button tb-hide-mobile"
         type="button"
         :title="`主题：${themeLabels[theme]} (点击切换)`"
         @click="ui.cycleTheme()"
@@ -125,14 +126,14 @@ function gotoPage() {
         {{ themeLabels[theme] }}
       </button>
       <button
-        class="tb-button"
+        class="tb-button tb-hide-mobile tb-hide-md"
         type="button"
         title="命令面板 (Ctrl/Cmd+K)"
         @click="ui.openCommandPalette()"
       >
         命令 ⌘K
       </button>
-      <button class="tb-button" type="button" @click="ui.openSettings()">
+      <button class="tb-button tb-hide-mobile" type="button" @click="ui.openSettings()">
         设置
       </button>
     </div>

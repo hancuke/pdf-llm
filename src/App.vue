@@ -10,6 +10,7 @@ import ConversationPanel from './components/ConversationPanel.vue'
 import SearchBar from './components/SearchBar.vue'
 import CommandPalette from './components/CommandPalette.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
+import BottomTabBar from './components/BottomTabBar.vue'
 
 const reader = useReaderStore()
 const ui = useUiStore()
@@ -92,6 +93,13 @@ onBeforeUnmount(() => {
       />
     </main>
 
+    <!-- Mobile-only backdrop for the slide-over panes (below). Hidden on desktop. -->
+    <div
+      v-if="ui.outlineOpen || ui.conversationOpen"
+      class="pane-scrim"
+      @click="ui.outlineOpen = false; ui.conversationOpen = false"
+    />
+
     <SearchBar v-if="ui.searchOpen" />
     <CommandPalette
       v-if="ui.commandPaletteOpen"
@@ -99,6 +107,8 @@ onBeforeUnmount(() => {
       @close="ui.closeCommandPalette()"
     />
     <SettingsPanel v-if="ui.settingsOpen" />
+
+    <BottomTabBar />
 
     <input
       ref="fileInput"

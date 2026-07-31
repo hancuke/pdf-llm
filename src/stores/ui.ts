@@ -62,10 +62,13 @@ export const useUiStore = defineStore('ui', {
     },
 
     toggleOutline() {
+      // Bottom drawers are mutually exclusive so two sheets never stack.
+      if (!this.outlineOpen) this.conversationOpen = false
       this.outlineOpen = !this.outlineOpen
       saveBoolean(STORAGE_KEYS.outlineOpen, this.outlineOpen)
     },
     toggleConversation() {
+      if (!this.conversationOpen) this.outlineOpen = false
       this.conversationOpen = !this.conversationOpen
       saveBoolean(STORAGE_KEYS.conversationOpen, this.conversationOpen)
     },
