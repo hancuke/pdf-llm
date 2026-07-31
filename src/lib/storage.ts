@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
   apiKey: `${PREFIX}apiKey`,
   model: `${PREFIX}model`,
   customActions: `${PREFIX}customActions`,
+  explanationStyle: `${PREFIX}explanationStyle`,
   outlineOpen: `${PREFIX}outlineOpen`,
   conversationOpen: `${PREFIX}conversationOpen`,
   theme: `${PREFIX}theme`,

@@ -10,6 +10,12 @@ export interface SelectionRange {
   end: number
 }
 
+/**
+ * Controls how plainly the LLM should express itself (CONTEXT.md:
+ * "讲解风格"). Applied globally to every Quick Action via the system prompt.
+ */
+export type ExplanationStyle = 'default' | 'plain' | 'eli5'
+
 /** Result of resolving a Selection into its surrounding Context. */
 export interface ExtractedContext {
   /** The exact highlighted text the user selected. */

@@ -2,18 +2,16 @@
 import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useConversationStore } from '../stores/conversation'
-import { useReaderStore } from '../stores/reader'
 import { useSettingsStore } from '../stores/settings'
 import { useUiStore } from '../stores/ui'
 import { downloadConversationMarkdown } from '../lib/exportConversation'
+import { renderMarkdown } from '../lib/markdown'
 
 const conversation = useConversationStore()
-const reader = useReaderStore()
 const settings = useSettingsStore()
 const ui = useUiStore()
 
 const { active, messages, loading, error } = storeToRefs(conversation)
-const { currentSelection } = storeToRefs(reader)
 
 const draft = ref('')
 
@@ -77,14 +75,13 @@ function exportConversation() {
           :key="i"
           :class="['msg', m.role]"
         >
-          <div v-if="m.role === 'assistant'" class="msg-content">
-            {{ m.content }}
-          </div>
-          <div v-else-if="i === 0 && currentSelection" class="msg-first">
-            <span class="msg-label">选中内容</span>
-            {{ currentSelection.selectedText }}
-          </div>
-          <div v-else class="msg-content">{{ m.content }}</div>
+          <span class="msg-role">{{ m.role === 'assistant' ? '助手' : '你' }}</span>
+          <div
+            v-if="m.role === 'assistant'"
+            class="msg-content"
+            v-html="renderMarkdown(m.content)"
+          ></div>
+          <div v-else class="msg-content msg-raw">{{ m.content }}</div>
         </div>
         <div v-if="loading" class="conv-loading">生成中…</div>
       </div>

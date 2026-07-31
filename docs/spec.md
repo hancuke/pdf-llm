@@ -123,3 +123,47 @@ Test external behavior at the highest seams; do not test pdf.js DOM selection or
 - 自动持久化文档字节（IndexedDB 存全文档）——如需"重开即恢复文档"须作为新 ADR 决策。
 - 多文档并发 / 标签页（首版仍单文档）。
 
+---
+
+# Phase 3 — 交互重设计：知识增强的选中聚焦澄清
+
+由 /grill-with-docs 会话敲定。前提：本项目的 PDF 均为**社会公开资料**，LLM 训练时大概率已见过全文。据此把 LLM 的核心定位从"严格基于段落文本的复述器"改为「选中聚焦型澄清」（ADR-0007）。
+
+## 设计原则（Locked）
+
+- **片段锚定 + 知识增强**：LLM 只对选中内容做反应；但可借助其对本文的潜在全文认知 + 通用知识来解释。
+- **Context 配方**：`干净题目 + 选中内容所在整段`（含选中内容）。不发送全文。
+- **段落硬锚 + 知识补充**：以提供的段落为硬锚，模型知识仅作补充；不确定时必须声明"以下仅基于你给出的文本"。
+- **回答基线**：富文本 Markdown + 数学公式渲染（KaTeX）。Mermaid 图示暂缓。
+- **对话线程**：每文档单一活跃线程；新选中重设锚点并入同一对话、保留历史；用户手动清空。
+- **讲解风格**：全局开关（默认 / 通俗大白话 / 小学生级），对所有快捷动作生效。
+
+## 新增 / 修订 User Stories
+
+32. As a reader, I want the app to extract a clean title from the PDF's metadata or first page (not the raw filename) and send it to the LLM, so that the model can leverage its prior knowledge of the document.
+33. As a reader, I want the LLM to clarify *only* my Selection rather than write about the whole document, so that I understand the specific part I'm stuck on.
+34. As a reader, I want the LLM to be allowed to use its own knowledge of the document and general knowledge (analogies, examples, related concepts), so that explanations are easier to grasp.
+35. As a reader, I want the LLM to ground primarily in the provided paragraph and disclose when it goes beyond the text or is uncertain, so that I am not misled.
+36. As a reader, I want a global "explanation style" setting (default / plain-language / ELI5) that applies to all actions, so that answers match how I want to learn.
+37. As a reader, I want LLM answers rendered as Markdown with math (KaTeX), so that formulas and structure are readable.
+38. As a reader, I want a "clear conversation" control, so that I can reset the thread when a new topic starts (since new selections merge into the same thread).
+
+> 与旧 story 11 的冲突：原 story 11 规定"每次追问都重发首段上下文"。在 Phase 3 模型下，改为**新选中时重设锚点（用新段落）但保留历史**；同一锚点内的追问不再强制重发段落。story 11 视为被本设计取代。
+
+## Implementation Decisions（Phase 3）
+
+- **Context 配方（`buildMessages`）**：每条 LLM 请求携带 ① 干净题目（一行 meta）② 选中内容所在段落（多栏/乱序无法判段落边界时退化为 Context Fallback 的 N 句，沿用「上下文降级」）③ 选中内容。
+- **System Prompt（选中聚焦澄清）**：写入——"聚焦解释用户选中的内容；可结合你对本文的潜在已有认知与通用知识（类比/举例/关联）来帮助理解，但不得离题扩写；优先基于给出的段落，若不确定是否见过全文，须声明'以下仅基于你给出的文本'。"
+- **讲解风格（Explanation Style）**：`settings` store 新增 `style` 字段，持久化于 localStorage；在 system prompt / 动作模板中注入对应措辞（如"用小学生也能懂的话"）。
+- **快捷动作集**：解释(发散) / 翻译 / 打个比方 / 关联概念 / 为什么重要 / 总结 / 自定义动作（自定义动作机制沿用，模板可引用 `{{context}}` / `{{selection}}` / `{{title}}` / `{{block}}`；讲解风格通过系统提示注入，不在模板变量中）。
+- **回答渲染**：对话面板以 Markdown 渲染，启用 KaTeX 公式；代码块、表格、分点原生支持。Mermaid 图示为后续增强，本轮不实现。
+- **对话线程**：每文档单一 `conversation` store 实例；选中新文字时更新"当前锚点段落"并 append 新 user turn（携带新段落上下文），历史保留；提供"清空对话"入口手动 reset。刷新仍清空（ADR-0004）。
+
+## Out of Scope（Phase 3）
+
+- Mermaid / 图示生成（后续增强）。
+- 公式、表格、图片的"选中类型自适应动作"（文本层仅含文字，公式/图选取文本可能失真，暂不做类型识别）。
+- 首次配置引导（Endpoint / Key 设置的 onboarding 优化）。
+- 整篇文档级问答（维持片段锚定，A 方案）。
+
+

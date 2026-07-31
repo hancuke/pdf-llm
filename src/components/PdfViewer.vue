@@ -111,6 +111,7 @@ async function onPickAction(action: Action) {
     action,
     selection.contextText,
     selection.selectedText,
+    reader.documentTitle,
   )
   // The conversation panel may be hidden (reading mode); reveal it so the
   // result is visible. Only open if currently hidden (Phase 2 decision:

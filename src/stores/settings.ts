@@ -5,6 +5,7 @@
 
 import { defineStore } from 'pinia'
 import { PRESET_ACTIONS, type Action } from '../lib/actions'
+import type { ExplanationStyle } from '../lib/types'
 import {
   STORAGE_KEYS,
   loadString,
@@ -14,12 +15,22 @@ import {
   createId,
 } from '../lib/storage'
 
+/**
+ * Read the persisted explanation style, validating it against the known union.
+ * Falls back to 'default' for an unset or stale value (never an invalid string).
+ */
+function readExplanationStyle(): ExplanationStyle {
+  const stored = loadString(STORAGE_KEYS.explanationStyle)
+  return stored === 'plain' || stored === 'eli5' ? stored : 'default'
+}
+
 export const useSettingsStore = defineStore('settings', {
   state: () => ({
     endpoint: loadString(STORAGE_KEYS.endpoint),
     apiKey: loadString(STORAGE_KEYS.apiKey),
     model: loadString(STORAGE_KEYS.model),
     customActions: loadJson<Action[]>(STORAGE_KEYS.customActions, []),
+    explanationStyle: readExplanationStyle(),
   }),
 
   getters: {
@@ -55,6 +66,11 @@ export const useSettingsStore = defineStore('settings', {
     updateModel(value: string) {
       this.model = value
       saveString(STORAGE_KEYS.model, value)
+    },
+
+    updateExplanationStyle(value: ExplanationStyle) {
+      this.explanationStyle = value
+      saveString(STORAGE_KEYS.explanationStyle, value)
     },
 
     addCustomAction(label: string, template: string): Action {

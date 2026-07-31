@@ -3,6 +3,8 @@ import { ref, computed } from 'vue'
 import { useSettingsStore } from '../stores/settings'
 import { useUiStore } from '../stores/ui'
 import type { Action } from '../lib/actions'
+import { EXPLANATION_STYLES } from '../lib/actions'
+import type { ExplanationStyle } from '../lib/types'
 
 const settings = useSettingsStore()
 const ui = useUiStore()
@@ -19,6 +21,15 @@ const model = computed({
   get: () => settings.model,
   set: (v: string) => settings.updateModel(v),
 })
+const explanationStyle = computed({
+  get: () => settings.explanationStyle,
+  set: (v: ExplanationStyle) => settings.updateExplanationStyle(v),
+})
+
+// Labels derive from the single style source in lib/actions (no duplication).
+const styleOptions = (
+  Object.entries(EXPLANATION_STYLES) as [ExplanationStyle, { label: string }][]
+).map(([value, cfg]) => ({ value, label: cfg.label }))
 
 // Custom Action editor state.
 const editingId = ref<string | null>(null)
@@ -96,6 +107,25 @@ function removeCustomAction(id: string) {
             type="text"
             placeholder="gpt-4o-mini / llama3 / ..."
           />
+        </label>
+
+        <label class="field">
+          <span>讲解风格</span>
+          <div class="style-options">
+            <label
+              v-for="opt in styleOptions"
+              :key="opt.value"
+              class="style-option"
+            >
+              <input
+                type="radio"
+                name="explanationStyle"
+                :value="opt.value"
+                v-model="explanationStyle"
+              />
+              {{ opt.label }}
+            </label>
+          </div>
         </label>
 
         <hr class="divider" />

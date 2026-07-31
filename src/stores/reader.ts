@@ -12,6 +12,7 @@ import {
 import { buildPageText } from '../lib/page-text'
 import type { PdfDocumentObject } from '@embedpdf/models'
 import { extractContext, findSelectionRange } from '../lib/context'
+import { cleanMetadataTitle, deriveTitleFromText } from '../lib/documentTitle'
 import type { ExtractedContext } from '../lib/types'
 import { flattenOutline, type OutlineItem } from '../lib/outline'
 import { normalizeSearchResults, type SearchHit } from '../lib/search'
@@ -30,6 +31,8 @@ interface ReaderState {
   scannedWarning: boolean
   /** True while a newly selected file is being opened/parsed. */
   isLoading: boolean
+  /** Clean title (PDF metadata or first-page fallback); empty if undeterminable. */
+  documentTitle: string
   currentSelection: ActiveSelection | null
   /** Flattened 目录 (Outline) entries for the open document. */
   outline: OutlineItem[]
@@ -55,6 +58,7 @@ export const useReaderStore = defineStore('reader', {
     scannedWarning: false,
     currentSelection: null,
     isLoading: false,
+    documentTitle: '',
     outline: [],
     searchQuery: '',
     searchResults: [],
@@ -79,6 +83,7 @@ export const useReaderStore = defineStore('reader', {
       this.scannedWarning = false
       this.hasTextLayer = null
       this.numPages = 0
+      this.documentTitle = ''
       this.isLoading = true
       this.outline = []
       this.searchQuery = ''
@@ -110,7 +115,30 @@ export const useReaderStore = defineStore('reader', {
       const firstPageText = await this.getPageText(1)
       this.hasTextLayer = firstPageText.trim().length > 0
       this.scannedWarning = !this.hasTextLayer
+      this.documentTitle = await this.resolveDocumentTitle(doc, firstPageText)
       this.isLoading = false
+    },
+
+    /**
+     * Resolve the clean title: prefer the PDF metadata `title`, otherwise fall
+     * back to the first meaningful line of the first page (CONTEXT.md:
+     * "干净题目"). Failures (unsupported metadata) degrade to the fallback.
+     */
+    async resolveDocumentTitle(
+      doc: PdfDocumentObject,
+      firstPageText: string,
+    ): Promise<string> {
+      const engine = getEngine()
+      if (engine) {
+        try {
+          const { title } = await engine.getMetadata(doc).toPromise()
+          const clean = cleanMetadataTitle(title)
+          if (clean) return clean
+        } catch {
+          // Metadata unavailable — fall through to the text heuristic.
+        }
+      }
+      return deriveTitleFromText(firstPageText)
     },
 
     /** Raw text of a page, computed once and cached (used for Context). */
