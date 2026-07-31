@@ -5,9 +5,10 @@ import vue from '@vitejs/plugin-vue'
 // history never leave the browser (ADR-0001).
 export default defineConfig({
   plugins: [vue()],
-  // pdfjs-dist ships a prebuilt worker; let Vite handle it as an asset URL.
+  // Exclude the PDFium package from esbuild pre-bundling: it references its own
+  // .wasm and pre-bundling can break that resolution.
   optimizeDeps: {
-    include: ['pdfjs-dist'],
+    exclude: ['@embedpdf/pdfium'],
   },
   test: {
     globals: true,

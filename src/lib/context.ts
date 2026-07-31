@@ -8,7 +8,7 @@
 //                   paragraph boundary can be detected) N sentences around it.
 //
 // This module is pure and framework-independent so it can be unit-tested
-// without pdf.js or the DOM (Seam 1 in docs/spec.md).
+// without EmbedPDF / the DOM (Seam 1 in docs/spec.md).
 
 import type { ExtractedContext, SelectionRange } from './types'
 
@@ -149,11 +149,10 @@ export function extractContext(
  * character range it occupies.
  *
  * This is more robust than mapping DOM selection offsets onto the flattened
- * raw text: the browser's selection string can include line breaks or
- * whitespace that differ from how the raw text was assembled, and pdf.js nests
- * text spans in ways that make DOM-offset mapping unreliable. We instead use a
- * direct match, falling back to a whitespace-normalised match so the selection
- * is found even when breaks don't line up exactly. Returns null when the text
+ * raw text: the selection string can include line breaks or whitespace that
+ * differ from how the raw text was assembled by PDFium. We instead use a direct
+ * match, falling back to a whitespace-normalised match so the selection is
+ * found even when breaks don't line up exactly. Returns null when the text
  * cannot be located.
  */
 export function findSelectionRange(

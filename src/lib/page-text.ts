@@ -1,59 +1,34 @@
-// Flattens a pdf.js text layer into a raw string, plus the per-item break
-// metadata needed to map a DOM selection back to a character range in that
-// exact string.
+// Normalises PDFium-extracted page text into a raw string suitable for Context
+// extraction (see context.ts).
 //
-// Paragraph breaks are detected from layout: when the vertical gap between two
-// consecutive text items exceeds ~1.3x the line height, a blank line
-// (`\n\n`) is inserted; an ordinary end-of-line gets a single `\n`. This lets
-// {@link extractContext} prefer the enclosing paragraph (story 8) on normal
-// PDFs, while messy / multi-column extracts fall back to the sentence window
-// (story 9).
+// pdf.js exposed per-item geometry, which let the old buildPageText detect
+// paragraph breaks from vertical gaps. PDFium's extractText returns a plain
+// string (with newlines where the PDF has them) and no geometry, so the layout
+// heuristic is no longer possible — instead we just tidy whitespace. The
+// sentence-window fallback in extractContext (story 9) absorbs the loss of
+// explicit paragraph boundaries.
 //
-// Kept free of any pdf.js import so it is a pure, unit-testable function.
-
-import type { TextContent } from 'pdfjs-dist/types/src/display/api'
-
-/** How a text item is separated from the preceding one in the raw string. */
-export type LeadingBreak = 0 | 1 | 2 // none | line (\n) | paragraph (\n\n)
-
-/** A text item with the break that precedes it in the flattened string. */
-export interface PageTextItem {
-  str: string
-  leadingBreak: LeadingBreak
-}
+// Kept free of any EmbedPDF/pdf.js import so it is a pure, unit-testable
+// function.
 
 export interface PageText {
   text: string
-  items: PageTextItem[]
 }
 
-/** Vertical gap multiplier over line height that counts as a paragraph break. */
-const PARAGRAPH_GAP_FACTOR = 1.3
-
-export function buildPageText(content: TextContent): PageText {
-  let text = ''
-  const items: PageTextItem[] = []
-  let prevY: number | null = null
-  let prevHeight = 0
-
-  for (const raw of content.items) {
-    if (!('str' in raw)) continue
-    const y = raw.transform[5]
-    let leadingBreak: LeadingBreak = 0
-    if (prevY !== null) {
-      const gap = prevY - y
-      if (gap > prevHeight * PARAGRAPH_GAP_FACTOR) {
-        leadingBreak = 2
-      } else if (raw.hasEOL) {
-        leadingBreak = 1
-      }
-    }
-
-    text += (leadingBreak === 2 ? '\n\n' : leadingBreak === 1 ? '\n' : '') + raw.str
-    items.push({ str: raw.str, leadingBreak })
-    prevY = y
-    prevHeight = raw.height
-  }
-
-  return { text, items }
+/**
+ * Normalise raw PDFium text:
+ *  - CRLF -> LF
+ *  - strip trailing whitespace on each line
+ *  - collapse 3+ consecutive newlines into a single blank line (`\n\n`)
+ *  - trim the whole block
+ */
+export function buildPageText(raw: string): PageText {
+  const text = raw
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+$/, ''))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+  return { text }
 }

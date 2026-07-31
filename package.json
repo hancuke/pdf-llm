@@ -17,7 +17,16 @@
     "gen:fixtures": "node scripts/generate-fixtures.mjs"
   },
   "dependencies": {
-    "pdfjs-dist": "^4.4.168",
+    "@embedpdf/core": "^2.14.4",
+    "@embedpdf/engines": "^2.14.4",
+    "@embedpdf/models": "^2.14.4",
+    "@embedpdf/pdfium": "^2.14.4",
+    "@embedpdf/plugin-document-manager": "^2.14.4",
+    "@embedpdf/plugin-interaction-manager": "^2.14.4",
+    "@embedpdf/plugin-render": "^2.14.4",
+    "@embedpdf/plugin-scroll": "^2.14.4",
+    "@embedpdf/plugin-selection": "^2.14.4",
+    "@embedpdf/plugin-viewport": "^2.14.4",
     "pinia": "^2.1.7",
     "vue": "^3.4.27"
   },

@@ -96,8 +96,9 @@ body {
   flex-direction: column;
 }
 
-.pages {
+.pdf-viewport {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 16px;
   display: flex;
@@ -109,67 +110,23 @@ body {
 
 .pdf-page {
   position: relative;
+  width: 100%;
+  height: 100%;
   background: #fff;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 
-.pdf-canvas {
-  display: block;
-}
-
-.pdf-text-layer {
-  position: absolute;
-  inset: 0;
-  overflow: clip;
-  opacity: 1;
-  line-height: 1;
-  text-align: initial;
-  text-size-adjust: none;
-  forced-color-adjust: none;
-  transform-origin: 0 0;
-  caret-color: CanvasText;
-  user-select: text;
-  z-index: 1;
-}
-
-.pdf-text-layer > span,
-.pdf-text-layer > br {
-  color: transparent;
-  position: absolute;
-  white-space: pre;
-  cursor: text;
-  transform-origin: 0 0;
-}
-
-.pdf-text-layer ::selection {
-  background: rgba(0, 113, 227, 0.35);
-}
-
-/* While drag-selecting, suppress the browser's native (broken) text selection
-   so only our geometric region rectangle is shown. */
-.pdf-page.selecting .pdf-text-layer {
+/* The rendered page is a bitmap <img>. Dragging on it would otherwise start
+   the browser's native image drag-and-drop, which fires `pointercancel` and
+   suppresses `pointerup` — breaking EmbedPDF's pointer-based text selection.
+   Disable native dragging/selection so the pointer events reach the
+   interaction layer. */
+.pdf-page img {
+  -webkit-user-drag: none;
+  user-drag: none;
   user-select: none;
-}
-
-.pdf-drag-rect {
-  position: absolute;
-  border: 1px solid rgba(0, 113, 227, 0.9);
-  background: rgba(0, 113, 227, 0.12);
+  -webkit-user-select: none;
   pointer-events: none;
-  z-index: 2;
-}
-
-.pdf-highlights {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.pdf-highlight {
-  position: absolute;
-  background: rgba(255, 212, 0, 0.35);
-  border-radius: 2px;
 }
 
 .scanned-warning {

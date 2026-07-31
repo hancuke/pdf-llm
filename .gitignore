@@ -1,8 +1,7 @@
 .codebuddy
 node_modules/
 dist/
-public/standard_fonts/
-public/cmaps/
+public/pdfium.wasm
 *.local
 .DS_Store
 
