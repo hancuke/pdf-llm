@@ -14,7 +14,9 @@ import { useZoomGesture } from '@embedpdf/plugin-zoom/vue'
 import { Scroller } from '@embedpdf/plugin-scroll/vue'
 import { PagePointerProvider } from '@embedpdf/plugin-interaction-manager/vue'
 import { RenderLayer } from '@embedpdf/plugin-render/vue'
+import { TilingLayer } from '@embedpdf/plugin-tiling/vue'
 import { SelectionLayer } from '@embedpdf/plugin-selection/vue'
+import { attachLongPressSelect } from '../lib/longPressSelect'
 
 const props = defineProps<{ documentId: string }>()
 const emit = defineEmits<{
@@ -44,18 +46,28 @@ function setupSelection(): void {
 
 watch(selection, setupSelection, { immediate: true })
 
-function onMouseUp(e: MouseEvent): void {
+// `pointerup` rather than `mouseup`: a touch selection ends with a pointer
+// event, and the compatibility mouse events are unreliable after a long press.
+function onPointerUp(e: PointerEvent): void {
   lastPointer.x = e.clientX
   lastPointer.y = e.clientY
 }
 
+// Touch arbiter: swipe scrolls, long-press selects. See lib/longPressSelect.
+let detachLongPress: (() => void) | null = null
+watch(elementRef, (el) => {
+  detachLongPress?.()
+  detachLongPress = el ? attachLongPressSelect(el) : null
+})
+
 onBeforeUnmount(() => {
   unsubscribeEnd?.()
+  detachLongPress?.()
 })
 </script>
 
 <template>
-  <div ref="elementRef" class="zoom-transform" @mouseup="onMouseUp">
+  <div ref="elementRef" class="zoom-transform" @pointerup="onPointerUp">
     <Scroller :document-id="documentId">
       <template #default="{ page }">
         <PagePointerProvider
@@ -63,7 +75,17 @@ onBeforeUnmount(() => {
           :page-index="page.pageIndex"
         >
           <div class="pdf-page" :data-page="page.pageNumber + 1">
-            <RenderLayer :document-id="documentId" :page-index="page.pageIndex" />
+            <!-- Fixed `scale`: left unset, RenderLayer re-renders the whole
+                 page at the live zoom × dpr, and the bitmap grows without
+                 bound until the tab is killed. Pinned, it is a cheap
+                 CSS-upscaled base that TilingLayer sharpens with
+                 viewport-sized tiles. -->
+            <RenderLayer
+              :document-id="documentId"
+              :page-index="page.pageIndex"
+              :scale="0.5"
+            />
+            <TilingLayer :document-id="documentId" :page-index="page.pageIndex" />
             <SelectionLayer :document-id="documentId" :page-index="page.pageIndex" />
           </div>
         </PagePointerProvider>

@@ -9,8 +9,10 @@ import { InteractionManagerPluginPackage } from '@embedpdf/plugin-interaction-ma
 import { ViewportPluginPackage } from '@embedpdf/plugin-viewport'
 import { ScrollPluginPackage } from '@embedpdf/plugin-scroll'
 import { RenderPluginPackage } from '@embedpdf/plugin-render'
+import { TilingPluginPackage } from '@embedpdf/plugin-tiling'
 import { SelectionPluginPackage } from '@embedpdf/plugin-selection'
 import { ZoomPluginPackage } from '@embedpdf/plugin-zoom'
+import { PanPluginPackage } from '@embedpdf/plugin-pan/vue'
 import { wasmUrl, setEngine } from '../lib/pdf'
 import type { PdfEngine } from '@embedpdf/models'
 import { useReaderStore } from '../stores/reader'
@@ -47,8 +49,27 @@ const plugins = [
   createPluginRegistration(ViewportPluginPackage),
   createPluginRegistration(ScrollPluginPackage),
   createPluginRegistration(RenderPluginPackage),
+  // RenderLayer draws one bitmap for the *whole* page; left unpinned it scales
+  // with the zoom level (scale × dpr), which blows past a phone's memory budget
+  // a few zoom steps in and kills the tab. The tiling plugin renders only the
+  // tiles currently on screen, so bitmap memory is bounded by the viewport
+  // instead of by page area × zoom². PdfScroller pins RenderLayer to a fixed
+  // low-res base and layers the tiles on top (the official viewer composition).
+  createPluginRegistration(TilingPluginPackage, {
+    tileSize: 768,
+    overlapPx: 2.5,
+    extraRings: 0,
+  }),
   createPluginRegistration(SelectionPluginPackage),
   createPluginRegistration(ZoomPluginPackage),
+  // `panMode` is the only built-in mode declared with `wantsRawTouch: false`,
+  // which is what stops the interaction manager from stamping
+  // `touch-action: none` onto every page element. PdfDocument makes it the
+  // default mode on touch devices so a swipe scrolls natively.
+  // `defaultMode: 'never'` because the bundled auto-switch keys off
+  // `ontouchstart`, which also matches touch-capable laptops; we gate on
+  // `(pointer: coarse)` instead.
+  createPluginRegistration(PanPluginPackage, { defaultMode: 'never' }),
 ]
 
 // --- Action sheet ----------------------------------------------------------

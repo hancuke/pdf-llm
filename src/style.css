@@ -210,6 +210,12 @@ body {
   pointer-events: none;
 }
 
+/* A long press over the page is our select-text gesture (lib/longPressSelect).
+   Suppress iOS's own long-press callout so it doesn't hijack it. */
+.pdf-page {
+  -webkit-touch-callout: none;
+}
+
 .scanned-warning {
   background: #fff3cd;
   color: #7a5b00;

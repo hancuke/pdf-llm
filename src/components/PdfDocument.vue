@@ -18,6 +18,7 @@ import {
 import { useSelectionCapability } from '@embedpdf/plugin-selection/vue'
 import { useScrollCapability } from '@embedpdf/plugin-scroll/vue'
 import { useZoomCapability } from '@embedpdf/plugin-zoom/vue'
+import { usePanCapability } from '@embedpdf/plugin-pan/vue'
 import { Viewport } from '@embedpdf/plugin-viewport/vue'
 import PdfScroller from './PdfScroller.vue'
 import { useReaderStore } from '../stores/reader'
@@ -26,9 +27,11 @@ import { useBookmarkStore } from '../stores/bookmarks'
 import {
   setScrollCapability,
   setZoomCapability,
+  setActiveDocumentId,
   getReadingPosition,
   jumpToPage,
 } from '../lib/viewer'
+import { isCoarsePointer } from '../lib/pointer'
 import type { ScrollCapability } from '@embedpdf/plugin-scroll'
 import type { ZoomCapability } from '@embedpdf/plugin-zoom'
 import { ZoomMode } from '@embedpdf/plugin-zoom'
@@ -46,6 +49,7 @@ const { provides: docManager } = useDocumentManagerCapability()
 const { provides: selection } = useSelectionCapability()
 const { provides: scroll } = useScrollCapability()
 const { provides: zoom } = useZoomCapability()
+const { provides: pan } = usePanCapability()
 
 // --- Wire scroll + zoom capabilities into the app-wide bridge -------------
 // Subscriptions are torn down on unmount and re-created if the capability
@@ -82,11 +86,15 @@ function wireScroll(cap: ScrollCapability): void {
   )
 }
 
+// Note: only the *event* hooks are wired here. A capability exists as soon as
+// its plugin registers — long before a document is open — and its un-scoped
+// state readers (`cap.getState()`) resolve through `getActiveDocumentId()`,
+// which throws `No active document`. The initial zoom readout is therefore
+// taken in the activeDocumentId watcher below, where a document is guaranteed.
 function wireZoom(cap: ZoomCapability): void {
   zoomUnsubs.forEach((u) => u())
   zoomUnsubs = []
   setZoomCapability(cap)
-  ui.setZoom(cap.getState().currentZoomLevel)
   zoomUnsubs.push(
     cap.onZoomChange((event) => ui.setZoom(event.newZoom)),
   )
@@ -105,9 +113,13 @@ const READ_ZOOM = 1.6
 function onDblClickZoom(): void {
   const z = zoom.value
   if (!z || !props.activeDocumentId) return
-  const cur = z.getState().currentZoomLevel
-  const target = cur > 1.15 ? ZoomMode.FitWidth : READ_ZOOM
-  z.forDocument(props.activeDocumentId).requestZoom(target)
+  // On touch devices a double-tap synthesises `dblclick`, which the selection
+  // plugin maps to word-select — the gesture the long-press arbiter relies on.
+  // Zoom stays on pinch there so the two don't fight over the same tap.
+  if (isCoarsePointer()) return
+  const scope = z.forDocument(props.activeDocumentId)
+  const cur = scope.getState().currentZoomLevel
+  scope.requestZoom(cur > 1.15 ? ZoomMode.FitWidth : READ_ZOOM)
 }
 
 // Tracks which document id we've already wired (selection mode + attach) so a
@@ -141,14 +153,34 @@ watch([() => reader.documentId, docManager], () => {
 watch(
   () => props.activeDocumentId,
   async (id) => {
+    // Everything outside the provider (toolbar, palette, panels) reaches the
+    // viewer through lib/viewer, which needs the id to scope its calls.
+    setActiveDocumentId(id)
     if (!id || id === attachedId) return
     const doc = docManager.value?.getActiveDocument()
     if (!doc) return
     attachedId = id
-    // Enable native text selection on the default interaction mode. The
-    // document id is passed explicitly because enableForMode otherwise
-    // requires an active document to already be set.
-    selection.value?.enableForMode('pointerMode', { enableSelection: true }, id)
+
+    // Selection is already enabled for `pointerMode` by the plugin itself when
+    // the document loads (with marquee + rect display); re-declaring it here
+    // would replace that config wholesale. What we do need is to keep it alive
+    // in `panMode`, which is the default mode on touch devices — the selection
+    // handler is pointer-driven and mode-gated only by this flag, so enabling
+    // it lets the long-press arbiter in PdfScroller drive a real selection.
+    selection.value?.enableForMode(
+      'panMode',
+      { enableSelection: true, showSelectionRects: true, enableMarquee: false },
+      id,
+    )
+    // `pointerMode` (the built-in default) does not declare `wantsRawTouch`,
+    // so the interaction manager defaults it to true and sets
+    // `touch-action: none` on every page — which is why a swipe over the page
+    // never scrolled. `panMode` declares `wantsRawTouch: false`, restoring
+    // native scrolling. Only on touch-primary devices: a mouse should keep
+    // drag-to-select.
+    if (isCoarsePointer()) pan.value?.makePanDefault()
+
+    ui.setZoom(zoom.value?.forDocument(id).getState().currentZoomLevel ?? 1)
     await reader.attachDocument(doc)
     // Load the embedded 目录 (Outline) for the left panel.
     await reader.loadOutline()
@@ -175,6 +207,7 @@ onBeforeUnmount(() => {
   zoomUnsubs = []
   setScrollCapability(null)
   setZoomCapability(null)
+  setActiveDocumentId(null)
 })
 
 defineExpose({
