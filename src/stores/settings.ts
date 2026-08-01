@@ -35,7 +35,7 @@ export const useSettingsStore = defineStore('settings', {
     ttsRate: loadString(STORAGE_KEYS.ttsRate) || '+0%',
     ttsVolume: loadString(STORAGE_KEYS.ttsVolume) || '+0%',
     ttsPitch: loadString(STORAGE_KEYS.ttsPitch) || '+0Hz',
-    ttsProxy: loadString(STORAGE_KEYS.ttsProxy) || '',
+    ttsProxy: loadString(STORAGE_KEYS.ttsProxy) || 'https://tts.webextools.com/tts',
   }),
 
   getters: {

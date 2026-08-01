@@ -59,12 +59,10 @@ export interface TtsConfig {
   /** Pitch, SSML syntax: "+0Hz", "-50Hz", "+50Hz". */
   pitch: string
   /**
-   * Optional WebSocket proxy base URL. The browser cannot set the
-   * `Origin`/`User-Agent` headers Microsoft requires, so a direct connection
-   * is rejected; a proxy (e.g. a Vite dev-server proxy or a Cloudflare Worker
-   * like MsEdge-TTS-Extension) must inject them. In dev, leave empty to use
-   * the built-in `/edge-tts-ws` Vite proxy. Example:
-   * `wss://my-worker.workers.dev/edge-tts`.
+   * TTS endpoint URL (HTTP POST). The browser posts
+   * `{ text, voice, rate, pitch, volume }` and receives audio bytes. Defaults
+   * to a public Edge TTS proxy; set your own (e.g. a self-hosted Cloudflare
+   * Pages Function) here if you prefer not to use the public one.
    */
   proxy: string
 }

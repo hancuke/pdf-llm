@@ -169,10 +169,9 @@ function removeCustomAction(id: string) {
 
         <h3 class="section-title">朗读（Edge TTS）</h3>
         <p class="settings-note">
-          使用微软 Edge 在线语音合成，无需密钥。浏览器无法直接连该端点（缺少必要请求头），
-          朗读请求统一走 <code>/edge-tts-ws</code> 代理：开发环境由 Vite 内置代理接管，部署到
-          Cloudflare Pages 时由仓库内的 <code>functions/edge-tts-ws.js</code> 函数接管，无需额外配置。
-          只有部署到其它平台时才需要在此填写你自己的代理地址。
+          使用微软 Edge 在线语音合成，无需密钥。朗读请求发往下方端点（POST
+          文本，返回音频），默认走一个公共代理。若你更想自建（例如部署到
+          Cloudflare Pages 的 HTTP 函数），在此填入你自己的端点地址即可。
         </p>
 
         <label class="field">
@@ -191,11 +190,11 @@ function removeCustomAction(id: string) {
         </label>
 
         <label class="field">
-          <span>代理地址（可选）</span>
+          <span>端点地址</span>
           <input
             v-model="ttsProxy"
             type="text"
-            placeholder="留空则用开发服务器内置代理 /edge-tts-ws"
+            placeholder="https://tts.webextools.com/tts（默认公共代理）"
           />
         </label>
 
