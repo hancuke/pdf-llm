@@ -18,10 +18,13 @@ test('settings persist endpoint, key, model and custom actions across reload', a
   // Add a custom action.
   await page.getByPlaceholder('动作名称，如「像给小孩解释」').fill('ELI5')
   await page
-    .getByPlaceholder('提示词模板，可用 {{context}} 与 {{selection}} 占位符')
+    .getByPlaceholder('提示词模板，可插入下方变量占位符')
     .fill('用五岁小孩能懂的话解释：{{selection}}')
-  await page.getByRole('button', { name: '添加' }).click()
+  await page.getByRole('button', { name: '添加动作', exact: true }).click()
   await expect(page.getByText('ELI5')).toBeVisible()
+
+  // Explicit save (settings only persist on 保存).
+  await page.getByRole('button', { name: '保存', exact: true }).click()
 
   // Reload and confirm persistence (localStorage).
   await page.reload()

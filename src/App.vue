@@ -10,8 +10,8 @@ import ConversationPanel from './components/ConversationPanel.vue'
 import SearchBar from './components/SearchBar.vue'
 import CommandPalette from './components/CommandPalette.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
+import ReadAloudPanel from './components/ReadAloudPanel.vue'
 import BottomTabBar from './components/BottomTabBar.vue'
-import { isSpeaking, isSynthesizing, speakingText, stop as stopTts } from './lib/tts'
 
 const reader = useReaderStore()
 const ui = useUiStore()
@@ -59,6 +59,7 @@ function onKeydown(event: KeyboardEvent) {
   } else if (event.key === 'Escape') {
     if (ui.commandPaletteOpen) ui.closeCommandPalette()
     else if (ui.searchOpen) ui.closeSearch()
+    else if (ui.settingsOpen) ui.closeSettings()
   }
 }
 
@@ -109,24 +110,9 @@ onBeforeUnmount(() => {
     />
     <SettingsPanel v-if="ui.settingsOpen" />
 
-    <BottomTabBar />
+    <ReadAloudPanel />
 
-    <div
-      v-if="isSpeaking || isSynthesizing"
-      class="tts-indicator"
-      role="button"
-      tabindex="0"
-      title="点击停止朗读"
-      @click="stopTts"
-      @keydown.enter.prevent="stopTts"
-    >
-      <span class="tts-dot" :class="{ busy: isSynthesizing && !isSpeaking }" />
-      <span class="tts-label">
-        {{ isSynthesizing && !isSpeaking ? '正在生成语音…' : '正在朗读' }}
-      </span>
-      <span v-if="speakingText" class="tts-text">{{ speakingText }}</span>
-      <span class="tts-stop">停止</span>
-    </div>
+    <BottomTabBar />
 
     <input
       ref="fileInput"

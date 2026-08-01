@@ -24,6 +24,34 @@ function readExplanationStyle(): ExplanationStyle {
   return stored === 'plain' || stored === 'eli5' ? stored : 'default'
 }
 
+/** Defaults for the Edge TTS fields (mirrored from the store's initial state). */
+const DEFAULT_TTS = {
+  voice: 'zh-CN-XiaoxiaoNeural',
+  rate: '+0%',
+  volume: '+0%',
+  pitch: '+0Hz',
+  proxy: 'https://tts.webextools.com/tts',
+}
+
+/**
+ * The editable surface of the settings panel. The panel edits a draft of this
+ * shape and commits it via {@link applyDraft} only when the user hits "保存"
+ * (explicit-save semantics) — so an accidental edit never touches localStorage
+ * until confirmed.
+ */
+export interface SettingsDraft {
+  endpoint: string
+  apiKey: string
+  model: string
+  explanationStyle: ExplanationStyle
+  ttsVoice: string
+  ttsRate: string
+  ttsVolume: string
+  ttsPitch: string
+  ttsProxy: string
+  customActions: Action[]
+}
+
 export const useSettingsStore = defineStore('settings', {
   state: () => ({
     endpoint: loadString(STORAGE_KEYS.endpoint),
@@ -31,11 +59,11 @@ export const useSettingsStore = defineStore('settings', {
     model: loadString(STORAGE_KEYS.model),
     customActions: loadJson<Action[]>(STORAGE_KEYS.customActions, []),
     explanationStyle: readExplanationStyle(),
-    ttsVoice: loadString(STORAGE_KEYS.ttsVoice) || 'zh-CN-XiaoxiaoNeural',
-    ttsRate: loadString(STORAGE_KEYS.ttsRate) || '+0%',
-    ttsVolume: loadString(STORAGE_KEYS.ttsVolume) || '+0%',
-    ttsPitch: loadString(STORAGE_KEYS.ttsPitch) || '+0Hz',
-    ttsProxy: loadString(STORAGE_KEYS.ttsProxy) || 'https://tts.webextools.com/tts',
+    ttsVoice: loadString(STORAGE_KEYS.ttsVoice) || DEFAULT_TTS.voice,
+    ttsRate: loadString(STORAGE_KEYS.ttsRate) || DEFAULT_TTS.rate,
+    ttsVolume: loadString(STORAGE_KEYS.ttsVolume) || DEFAULT_TTS.volume,
+    ttsPitch: loadString(STORAGE_KEYS.ttsPitch) || DEFAULT_TTS.pitch,
+    ttsProxy: loadString(STORAGE_KEYS.ttsProxy) || DEFAULT_TTS.proxy,
   }),
 
   getters: {
@@ -72,6 +100,39 @@ export const useSettingsStore = defineStore('settings', {
     updateEndpoint(value: string) {
       this.endpoint = value
       saveString(STORAGE_KEYS.endpoint, value)
+    },
+
+    /**
+     * Commit a panel draft to the store and persist it. Normalizes the TTS
+     * fields exactly like the individual `updateTts*` actions so a saved draft
+     * behaves identically to per-field edits. Clears the API key's transient
+     * show/hide concern by storing it verbatim.
+     */
+    applyDraft(draft: SettingsDraft) {
+      this.endpoint = draft.endpoint.trim()
+      this.apiKey = draft.apiKey
+      this.model = draft.model.trim()
+      this.explanationStyle =
+        draft.explanationStyle === 'plain' || draft.explanationStyle === 'eli5'
+          ? draft.explanationStyle
+          : 'default'
+      this.ttsVoice = draft.ttsVoice.trim() || DEFAULT_TTS.voice
+      this.ttsRate = draft.ttsRate.trim() || DEFAULT_TTS.rate
+      this.ttsVolume = draft.ttsVolume.trim() || DEFAULT_TTS.volume
+      this.ttsPitch = draft.ttsPitch.trim() || DEFAULT_TTS.pitch
+      this.ttsProxy = draft.ttsProxy.trim()
+      this.customActions = draft.customActions.map((a) => ({ ...a }))
+
+      saveString(STORAGE_KEYS.endpoint, this.endpoint)
+      saveString(STORAGE_KEYS.apiKey, this.apiKey)
+      saveString(STORAGE_KEYS.model, this.model)
+      saveString(STORAGE_KEYS.explanationStyle, this.explanationStyle)
+      saveString(STORAGE_KEYS.ttsVoice, this.ttsVoice)
+      saveString(STORAGE_KEYS.ttsRate, this.ttsRate)
+      saveString(STORAGE_KEYS.ttsVolume, this.ttsVolume)
+      saveString(STORAGE_KEYS.ttsPitch, this.ttsPitch)
+      saveString(STORAGE_KEYS.ttsProxy, this.ttsProxy)
+      saveJson(STORAGE_KEYS.customActions, this.customActions)
     },
     updateApiKey(value: string) {
       this.apiKey = value

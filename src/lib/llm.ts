@@ -123,6 +123,82 @@ export async function chat(
  * arrive (story 20). Throws {@link LlmError} on connection or HTTP failure,
  * and on a malformed stream line (the partial line is skipped, not fatal).
  */
+/**
+ * Lightweight connectivity/key check for the user's configured endpoint.
+ * Tries `GET {baseUrl}/models` first (no model required); if that endpoint is
+ * unsupported it falls back to a minimal `chat/completions` POST. Returns a
+ * friendly, localized result the UI can render inline — no thrown errors.
+ */
+export async function testEndpoint(
+  settings: EndpointSettings,
+  fetcher: Fetcher = fetch,
+  timeoutMs = 10000,
+): Promise<{ ok: boolean; message: string }> {
+  const base = settings.baseUrl.replace(/\/+$/, '')
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+  const mapNetworkError = (err: unknown): { ok: boolean; message: string } => {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return { ok: false, message: '连接超时，请检查网络或端点地址。' }
+    }
+    return {
+      ok: false,
+      message: '无法连接到端点（网络不通，或端点缺少 CORS 支持）。',
+    }
+  }
+
+  const tryChat = async (): Promise<{ ok: boolean; message: string }> => {
+    const url = `${base}/chat/completions`
+    try {
+      const res = await fetcher(url, {
+        method: 'POST',
+        headers: buildHeaders(settings),
+        body: JSON.stringify({
+          model: settings.model || 'gpt-4o-mini',
+          messages: [{ role: 'user', content: 'ping' }],
+          max_tokens: 1,
+          stream: false,
+        }),
+        signal: controller.signal,
+      })
+      if (res.ok) return { ok: true, message: '连接成功，密钥有效。' }
+      if (res.status === 401 || res.status === 403)
+        return { ok: false, message: '密钥无效（401），请检查 API 密钥。' }
+      if (res.status === 404)
+        return {
+          ok: false,
+          message: '端点返回 404，请确认 Base URL 是否包含 /v1 等路径。',
+        }
+      const detail = await res.text().catch(() => '')
+      return {
+        ok: false,
+        message: `端点返回错误 ${res.status}：${detail.slice(0, 160)}`,
+      }
+    } catch (err) {
+      return mapNetworkError(err)
+    }
+  }
+
+  try {
+    const modelsRes = await fetcher(`${base}/models`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${settings.apiKey}` },
+      signal: controller.signal,
+    })
+    if (modelsRes.ok) return { ok: true, message: '连接成功，密钥有效。' }
+    if (modelsRes.status === 401 || modelsRes.status === 403)
+      return { ok: false, message: '密钥无效（401），请检查 API 密钥。' }
+    // /models unsupported (e.g. 404) — fall back to a real completion call.
+    return await tryChat()
+  } catch {
+    // Network/CORS on the models probe — still try the completion path.
+    return await tryChat()
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export async function* chatStream(
   messages: ChatMessage[],
   settings: EndpointSettings,
