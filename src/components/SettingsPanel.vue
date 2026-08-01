@@ -5,6 +5,13 @@ import { useUiStore } from '../stores/ui'
 import type { Action } from '../lib/actions'
 import { EXPLANATION_STYLES } from '../lib/actions'
 import type { ExplanationStyle } from '../lib/types'
+import {
+  speak,
+  isSpeaking,
+  isSynthesizing,
+  ttsError,
+  SUGGESTED_VOICES,
+} from '../lib/tts'
 
 const settings = useSettingsStore()
 const ui = useUiStore()
@@ -25,6 +32,36 @@ const explanationStyle = computed({
   get: () => settings.explanationStyle,
   set: (v: ExplanationStyle) => settings.updateExplanationStyle(v),
 })
+
+// Edge TTS (read-aloud) configuration.
+const ttsVoice = computed({
+  get: () => settings.ttsVoice,
+  set: (v: string) => settings.updateTtsVoice(v),
+})
+const ttsRate = computed({
+  get: () => settings.ttsRate,
+  set: (v: string) => settings.updateTtsRate(v),
+})
+const ttsVolume = computed({
+  get: () => settings.ttsVolume,
+  set: (v: string) => settings.updateTtsVolume(v),
+})
+const ttsPitch = computed({
+  get: () => settings.ttsPitch,
+  set: (v: string) => settings.updateTtsPitch(v),
+})
+const ttsProxy = computed({
+  get: () => settings.ttsProxy,
+  set: (v: string) => settings.updateTtsProxy(v),
+})
+const ttsBusy = computed(() => isSpeaking.value || isSynthesizing.value)
+const suggestedVoices = SUGGESTED_VOICES
+const testText = ref('这是一段用于测试朗读效果的示例文本，可以听一听音色是否合适。')
+
+async function testTts() {
+  ttsError.value = null
+  await speak(testText.value, settings.ttsConfig)
+}
 
 // Labels derive from the single style source in lib/actions (no duplication).
 const styleOptions = (
@@ -127,6 +164,72 @@ function removeCustomAction(id: string) {
             </label>
           </div>
         </label>
+
+        <hr class="divider" />
+
+        <h3 class="section-title">朗读（Edge TTS）</h3>
+        <p class="settings-note">
+          使用微软 Edge 在线语音合成，无需密钥。浏览器无法直接连该端点（缺少必要请求头），
+          朗读请求统一走 <code>/edge-tts-ws</code> 代理：开发环境由 Vite 内置代理接管，部署到
+          Cloudflare Pages 时由仓库内的 <code>functions/edge-tts-ws.js</code> 函数接管，无需额外配置。
+          只有部署到其它平台时才需要在此填写你自己的代理地址。
+        </p>
+
+        <label class="field">
+          <span>语音</span>
+          <input
+            v-model="ttsVoice"
+            type="text"
+            list="tts-voice-list"
+            placeholder="zh-CN-XiaoxiaoNeural"
+          />
+          <datalist id="tts-voice-list">
+            <option v-for="v in suggestedVoices" :key="v.value" :value="v.value">
+              {{ v.label }}
+            </option>
+          </datalist>
+        </label>
+
+        <label class="field">
+          <span>代理地址（可选）</span>
+          <input
+            v-model="ttsProxy"
+            type="text"
+            placeholder="留空则用开发服务器内置代理 /edge-tts-ws"
+          />
+        </label>
+
+        <div class="field-row">
+          <label class="field">
+            <span>语速</span>
+            <input v-model="ttsRate" type="text" placeholder="+0%" />
+          </label>
+          <label class="field">
+            <span>音量</span>
+            <input v-model="ttsVolume" type="text" placeholder="+0%" />
+          </label>
+          <label class="field">
+            <span>音调</span>
+            <input v-model="ttsPitch" type="text" placeholder="+0Hz" />
+          </label>
+        </div>
+
+        <label class="field">
+          <span>测试文本</span>
+          <textarea v-model="testText" class="custom-textarea" rows="2" />
+        </label>
+
+        <div class="tts-test-row">
+          <button
+            class="send-button"
+            type="button"
+            :disabled="ttsBusy"
+            @click="testTts"
+          >
+            {{ ttsBusy ? '合成中…' : '测试朗读' }}
+          </button>
+          <span v-if="ttsError" class="tts-error">{{ ttsError }}</span>
+        </div>
 
         <hr class="divider" />
 

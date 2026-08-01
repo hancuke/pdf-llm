@@ -78,20 +78,6 @@ export const PRESET_ACTIONS: Action[] = [
     builtin: true,
   },
   {
-    id: 'analogy',
-    label: '打个比方',
-    template:
-      '请用贴切的生活例子或比喻来解释下面的选中内容，让我更容易直观理解。可以借助你对本文的已有认知。\n\n{{block}}',
-    builtin: true,
-  },
-  {
-    id: 'relate',
-    label: '关联概念',
-    template:
-      '说明下面的选中内容与哪些相关概念、领域、方法或已知事物相关，帮助我建立联系。\n\n{{block}}',
-    builtin: true,
-  },
-  {
     id: 'why',
     label: '为什么重要',
     template:

@@ -13,6 +13,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'pick', action: Action): void
+  (e: 'read', text: string): void
   (e: 'close'): void
 }>()
 
@@ -32,10 +33,8 @@ const ICONS: Record<string, string> = {
     '<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10c.8.8 1 1.5 1 2h6c0-.5.2-1.2 1-2a6 6 0 0 0-4-10z"/>',
   translate:
     '<path d="M4 5h7"/><path d="M7.5 4c0 4 3 7 6.5 8"/><path d="M5.5 9c.5 3 2.5 6 5.5 7"/><path d="M13 20l4-9 4 9"/><path d="M14.5 17h5"/>',
-  analogy:
-    '<circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 6h6a3 3 0 0 1 3 3"/><path d="M15 18H9a3 3 0 0 1-3-3"/>',
-  relate:
-    '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>',
+  read:
+    '<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>',
   why:
     '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 1-1 1.7"/><path d="M12 17h.01"/>',
   summarize: '<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h13"/>',
@@ -81,6 +80,11 @@ async function copyText() {
       <button class="action-item copy" role="menuitem" @click="copyText">
         <span class="action-icon" v-html="iconSvg('copy')" />
         <span class="action-label">{{ copied ? '已复制' : '复制' }}</span>
+      </button>
+
+      <button class="action-item read" role="menuitem" @click="emit('read', selectedText)">
+        <span class="action-icon" v-html="iconSvg('read')" />
+        <span class="action-label">朗读</span>
       </button>
 
       <button

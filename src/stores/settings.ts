@@ -5,7 +5,7 @@
 
 import { defineStore } from 'pinia'
 import { PRESET_ACTIONS, type Action } from '../lib/actions'
-import type { ExplanationStyle } from '../lib/types'
+import type { ExplanationStyle, TtsConfig } from '../lib/types'
 import {
   STORAGE_KEYS,
   loadString,
@@ -31,6 +31,11 @@ export const useSettingsStore = defineStore('settings', {
     model: loadString(STORAGE_KEYS.model),
     customActions: loadJson<Action[]>(STORAGE_KEYS.customActions, []),
     explanationStyle: readExplanationStyle(),
+    ttsVoice: loadString(STORAGE_KEYS.ttsVoice) || 'zh-CN-XiaoxiaoNeural',
+    ttsRate: loadString(STORAGE_KEYS.ttsRate) || '+0%',
+    ttsVolume: loadString(STORAGE_KEYS.ttsVolume) || '+0%',
+    ttsPitch: loadString(STORAGE_KEYS.ttsPitch) || '+0Hz',
+    ttsProxy: loadString(STORAGE_KEYS.ttsProxy) || '',
   }),
 
   getters: {
@@ -39,6 +44,15 @@ export const useSettingsStore = defineStore('settings', {
       baseUrl: state.endpoint,
       apiKey: state.apiKey,
       model: state.model,
+    }),
+
+    /** Edge TTS configuration consumed by the read-aloud feature. */
+    ttsConfig: (state): TtsConfig => ({
+      voice: state.ttsVoice,
+      rate: state.ttsRate,
+      volume: state.ttsVolume,
+      pitch: state.ttsPitch,
+      proxy: state.ttsProxy,
     }),
 
     /** Endpoint + Key + Model present enough to attempt a call (story 17). */
@@ -71,6 +85,27 @@ export const useSettingsStore = defineStore('settings', {
     updateExplanationStyle(value: ExplanationStyle) {
       this.explanationStyle = value
       saveString(STORAGE_KEYS.explanationStyle, value)
+    },
+
+    updateTtsVoice(value: string) {
+      this.ttsVoice = value.trim() || 'zh-CN-XiaoxiaoNeural'
+      saveString(STORAGE_KEYS.ttsVoice, this.ttsVoice)
+    },
+    updateTtsRate(value: string) {
+      this.ttsRate = value.trim() || '+0%'
+      saveString(STORAGE_KEYS.ttsRate, this.ttsRate)
+    },
+    updateTtsVolume(value: string) {
+      this.ttsVolume = value.trim() || '+0%'
+      saveString(STORAGE_KEYS.ttsVolume, this.ttsVolume)
+    },
+    updateTtsPitch(value: string) {
+      this.ttsPitch = value.trim() || '+0Hz'
+      saveString(STORAGE_KEYS.ttsPitch, this.ttsPitch)
+    },
+    updateTtsProxy(value: string) {
+      this.ttsProxy = value.trim()
+      saveString(STORAGE_KEYS.ttsProxy, this.ttsProxy)
     },
 
     addCustomAction(label: string, template: string): Action {

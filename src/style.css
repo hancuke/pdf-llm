@@ -346,6 +346,12 @@ body {
 .action-item.cancel .action-icon {
   color: var(--text-muted);
 }
+.action-item.read {
+  color: var(--accent);
+}
+.action-item.read .action-icon {
+  color: var(--accent);
+}
 .badge {
   flex: 0 0 auto;
   font-size: 11px;
@@ -1280,4 +1286,88 @@ body {
   .current-page {
     display: none;
   }
+}
+
+/* --- Edge TTS (read-aloud) settings + indicator -------------------------- */
+.field-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.field-row .field {
+  flex: 1 1 120px;
+}
+.tts-test-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.tts-error {
+  color: #ff3b30;
+  font-size: 12px;
+}
+.tts-indicator {
+  position: fixed;
+  z-index: 180;
+  left: 50%;
+  bottom: 76px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(92vw, 520px);
+  padding: 9px 14px;
+  background: var(--bar-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid var(--bar-border);
+  border-radius: 999px;
+  box-shadow: 0 10px 30px var(--shadow), 0 2px 8px rgba(0, 0, 0, 0.12);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  animation: sheet-in 0.14s ease-out;
+}
+.tts-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #34c759;
+  box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.5);
+  animation: tts-pulse 1.4s infinite;
+}
+.tts-dot.busy {
+  background: var(--accent);
+  animation: none;
+}
+@keyframes tts-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(52, 199, 89, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 199, 89, 0);
+  }
+}
+.tts-label {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.tts-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.tts-stop {
+  flex: 0 0 auto;
+  color: var(--accent);
 }

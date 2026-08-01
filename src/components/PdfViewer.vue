@@ -22,6 +22,7 @@ import { useUiStore } from '../stores/ui'
 import PdfDocument from './PdfDocument.vue'
 import ActionSheet from './ActionSheet.vue'
 import type { Action } from '../lib/actions'
+import { speak } from '../lib/tts'
 
 const reader = useReaderStore()
 const settings = useSettingsStore()
@@ -154,6 +155,13 @@ async function onPickAction(action: Action) {
   // hide = reading mode, not "off") — never hide an already-visible panel.
   if (!ui.conversationOpen) ui.toggleConversation()
 }
+
+async function onRead(text: string) {
+  hideSheet()
+  if (!text.trim()) return
+  // Edge TTS reads the selected text aloud using the user's TTS config.
+  await speak(text, settings.ttsConfig)
+}
 </script>
 
 <template>
@@ -206,6 +214,7 @@ async function onPickAction(action: Action) {
       :origin-x="sheet.originX"
       :placement="sheet.placement"
       @pick="onPickAction"
+      @read="onRead"
       @close="hideSheet"
     />
   </section>

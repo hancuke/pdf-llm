@@ -43,3 +43,28 @@ export interface EndpointSettings {
   /** Model name. */
   model: string
 }
+
+/**
+ * Edge TTS (Microsoft "read aloud") configuration. No API key — the public
+ * Edge online TTS endpoint is used directly. `rate`/`volume`/`pitch` follow the
+ * SSML prosody attribute syntax (e.g. "+0%", "-50%", "+0Hz").
+ */
+export interface TtsConfig {
+  /** Voice short name, e.g. "zh-CN-XiaoxiaoNeural". */
+  voice: string
+  /** Speaking rate, SSML syntax: "+0%", "+50%", "-25%". */
+  rate: string
+  /** Volume, SSML syntax: "+0%", "-50%", "+100%". */
+  volume: string
+  /** Pitch, SSML syntax: "+0Hz", "-50Hz", "+50Hz". */
+  pitch: string
+  /**
+   * Optional WebSocket proxy base URL. The browser cannot set the
+   * `Origin`/`User-Agent` headers Microsoft requires, so a direct connection
+   * is rejected; a proxy (e.g. a Vite dev-server proxy or a Cloudflare Worker
+   * like MsEdge-TTS-Extension) must inject them. In dev, leave empty to use
+   * the built-in `/edge-tts-ws` Vite proxy. Example:
+   * `wss://my-worker.workers.dev/edge-tts`.
+   */
+  proxy: string
+}
