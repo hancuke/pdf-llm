@@ -6,6 +6,7 @@
 import { useReaderStore } from '../stores/reader'
 import { useConversationStore } from '../stores/conversation'
 import { conversationToMarkdown } from './export'
+import { downloadBlob } from './download'
 
 /** Build and trigger a download of the current conversation as .md. */
 export function downloadConversationMarkdown(): void {
@@ -19,13 +20,6 @@ export function downloadConversationMarkdown(): void {
   )
 
   const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
   const base = reader.fileName.replace(/\.pdf$/i, '') || 'conversation'
-  a.download = `${base}-对话.md`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  URL.revokeObjectURL(url)
+  downloadBlob(blob, `${base}-对话.md`)
 }
