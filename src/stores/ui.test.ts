@@ -76,6 +76,40 @@ describe('ui store — independent panels', () => {
   })
 })
 
+describe('ui store — zoom readout', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('reads out a numeric zoom as a rounded percentage', () => {
+    const ui = useUiStore()
+    ui.setZoom(1.5)
+    expect(ui.zoomMode).toBeNull()
+    expect(ui.zoomLabel).toBe('150%')
+  })
+
+  it('reads out the fit modes by name instead of a percentage', () => {
+    const ui = useUiStore()
+    ui.setZoom(1.32, 'fit-width')
+    expect(ui.zoomMode).toBe('fit-width')
+    expect(ui.zoomLabel).toBe('适合宽度')
+
+    ui.setZoom(0.78, 'fit-page')
+    expect(ui.zoomLabel).toBe('适合页面')
+
+    ui.setZoom(1, 'automatic')
+    expect(ui.zoomLabel).toBe('自动')
+  })
+
+  it('drops back to the percentage once a numeric level is applied', () => {
+    const ui = useUiStore()
+    ui.setZoom(1.32, 'fit-width')
+    ui.setZoom(2)
+    expect(ui.zoomMode).toBeNull()
+    expect(ui.zoomLabel).toBe('200%')
+  })
+})
+
 describe('ui store — transient toast', () => {
   beforeEach(() => {
     setActivePinia(createPinia())

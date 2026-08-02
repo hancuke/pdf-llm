@@ -118,12 +118,6 @@ body {
   z-index: 50;
 }
 
-.brand-name {
-  font-weight: 700;
-  font-size: 18px;
-  letter-spacing: 0.3px;
-}
-
 .brand-sub {
   margin-left: 10px;
   font-size: 13px;
@@ -310,10 +304,14 @@ body {
 }
 
 .empty-state {
-  margin: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   text-align: center;
   color: #86868b;
   padding: 40px;
+  
 }
 .empty-title {
   font-size: 18px;
@@ -1104,123 +1102,6 @@ body {
 }
 
 /* ----------------------------------------------------------------------- */
-/* Toolbar (Phase 2)                                                        */
-/* ----------------------------------------------------------------------- */
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 9px 18px;
-  background: var(--bar-bg);
-  border-bottom: 1px solid var(--bar-border);
-  flex-wrap: nowrap;
-}
-/* Visual divider between toolbar groups (Apple segmented feel). */
-.tb-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.tb-group + .tb-group:not(.tb-right)::before {
-  content: '';
-  width: 1px;
-  height: 20px;
-  background: var(--bar-border);
-  margin-right: 8px;
-}
-.tb-right {
-  margin-left: auto;
-}
-.tb-brand {
-  gap: 10px;
-}
-.brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: var(--accent-contrast);
-  font-size: 13px;
-  font-weight: 700;
-  flex: 0 0 auto;
-}
-.file-name {
-  font-size: 13px;
-  color: var(--text-muted);
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tb-button {
-  background: transparent;
-  color: var(--text);
-  border: none;
-  border-radius: 980px;
-  padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.tb-button:hover {
-  background: var(--hover);
-}
-.tb-button.active {
-  background: var(--accent);
-  color: #fff;
-}
-.tb-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 980px;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  font-size: 16px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s ease;
-}
-.tb-icon:hover {
-  background: var(--hover);
-}
-.zoom-label {
-  font-size: 13px;
-  min-width: 42px;
-  text-align: center;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-.goto {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--surface-2);
-  border-radius: 980px;
-  padding: 2px 8px;
-}
-.goto-input {
-  width: 40px;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  font-size: 13px;
-  text-align: center;
-  padding: 3px 0;
-}
-.goto-total,
-.current-page {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-/* ----------------------------------------------------------------------- */
 /* Bottom Tab bar (mobile, iOS style)                                       */
 /* ----------------------------------------------------------------------- */
 .bottom-tabbar {
@@ -1604,18 +1485,8 @@ body {
 }
 
 @media (max-width: 768px) {
-  /* Toolbar collapses to brand + file name (left) and theme toggle (right);
-     the rest of the controls move to the bottom Tab bar. */
-  .toolbar {
-    padding: 8px 12px;
-    gap: 10px;
-  }
-  .tb-hide-mobile {
-    display: none !important;
-  }
-  .file-name {
-    max-width: 140px;
-  }
+  /* The toolbar's own mobile rules live in Toolbar.vue; here we only make room
+     for the bottom Tab bar and turn the side panes into drawers. */
   .app-main {
     padding-bottom: calc(52px + env(safe-area-inset-bottom));
   }
@@ -1720,18 +1591,6 @@ body {
     padding: 11px;
     border-left: 1px solid var(--bar-border);
     border-radius: 999px;
-  }
-}
-
-/* Medium widths (tablet / narrow desktop): shed the keyboard-only command
-   palette and the page-number readout so the single-row Apple toolbar keeps
-   its clean, unclipped silhouette before the mobile Tab bar takes over. */
-@media (max-width: 900px) {
-  .tb-hide-md {
-    display: none !important;
-  }
-  .current-page {
-    display: none;
   }
 }
 

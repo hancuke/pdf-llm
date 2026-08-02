@@ -10,6 +10,8 @@ import {
   loadBoolean,
   saveBoolean,
 } from '../lib/storage'
+import type { ZoomFitMode, ZoomLevel } from '../lib/viewer'
+import { ZOOM_MODE_LABELS } from '../lib/viewer'
 
 export type Theme = 'light' | 'dark' | 'sepia'
 
@@ -70,11 +72,21 @@ export const useUiStore = defineStore('ui', {
     searchOpen: false,
     /** Current zoom scale (1 = 100%), kept in sync from the viewer. */
     currentZoom: 1,
+    /** Active fit mode, or null when the zoom is a plain scale factor. */
+    zoomMode: null as ZoomFitMode | null,
     /** Current 1-based page number, kept in sync from the viewer. */
     currentPage: 1,
     /** Transient toast message (e.g. "仅支持 PDF 文件"), or null. */
     toast: null as string | null,
   }),
+
+  getters: {
+    /** What the toolbar's zoom control reads out: a fit mode or a percentage. */
+    zoomLabel(state): string {
+      if (state.zoomMode) return ZOOM_MODE_LABELS[state.zoomMode]
+      return `${Math.round(state.currentZoom * 100)}%`
+    },
+  },
 
   actions: {
     openSettings() {
@@ -157,8 +169,14 @@ export const useUiStore = defineStore('ui', {
       this.searchOpen = false
     },
 
-    setZoom(zoom: number) {
+    /**
+     * Record the resolved scale, plus the level it came from so a fit mode
+     * keeps reading out as "适合宽度" rather than the percentage it happens to
+     * resolve to at the current viewport width.
+     */
+    setZoom(zoom: number, level?: ZoomLevel) {
       this.currentZoom = zoom
+      this.zoomMode = typeof level === 'string' ? level : null
     },
 
     setCurrentPage(page: number) {

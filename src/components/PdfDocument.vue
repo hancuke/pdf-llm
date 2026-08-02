@@ -30,6 +30,7 @@ import {
   setActiveDocumentId,
   getReadingPosition,
   jumpToPage,
+  toZoomLevel,
 } from '../lib/viewer'
 import { isCoarsePointer } from '../lib/pointer'
 import type { ScrollCapability } from '@embedpdf/plugin-scroll'
@@ -96,7 +97,9 @@ function wireZoom(cap: ZoomCapability): void {
   zoomUnsubs = []
   setZoomCapability(cap)
   zoomUnsubs.push(
-    cap.onZoomChange((event) => ui.setZoom(event.newZoom)),
+    cap.onZoomChange((event) =>
+      ui.setZoom(event.newZoom, toZoomLevel(event.level)),
+    ),
   )
 }
 
@@ -190,7 +193,11 @@ watch(
     // drag-to-select.
     if (isCoarsePointer()) pan.value?.makePanDefault()
 
-    ui.setZoom(zoom.value?.forDocument(id).getState().currentZoomLevel ?? 1)
+    const zoomState = zoom.value?.forDocument(id).getState()
+    ui.setZoom(
+      zoomState?.currentZoomLevel ?? 1,
+      zoomState && toZoomLevel(zoomState.zoomLevel),
+    )
     await reader.attachDocument(doc)
     // Load the embedded 目录 (Outline) for the left panel.
     await reader.loadOutline()
