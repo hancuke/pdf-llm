@@ -32,7 +32,7 @@ function readExplanationStyle(): ExplanationStyle {
 }
 
 /** Defaults for the Edge TTS fields (mirrored from the store's initial state). */
-const DEFAULT_TTS = {
+export const DEFAULT_TTS = {
   voice: 'zh-CN-XiaoxiaoNeural',
   rate: '+0%',
   volume: '+0%',
