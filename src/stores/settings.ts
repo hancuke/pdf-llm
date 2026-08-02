@@ -2,6 +2,10 @@
 // "兼容端点" / "API 密钥" / "自定义动作"). Persisted to localStorage; the API
 // key is stored as-is on the device and never sent to a self-owned backend
 // (story 15, ADR-0001).
+//
+// Immediate-apply model (ADR-0017): every field edits straight through to
+// localStorage via its `update*` action — there is no draft and no "保存"
+// button. The 设置面板 binds each control to one of these actions.
 
 import { defineStore } from 'pinia'
 import { PRESET_ACTIONS, type Action } from '../lib/actions'
@@ -34,25 +38,6 @@ const DEFAULT_TTS = {
   volume: '+0%',
   pitch: '+0Hz',
   proxy: 'https://tts.webextools.com/tts',
-}
-
-/**
- * The editable surface of the settings panel. The panel edits a draft of this
- * shape and commits it via {@link applyDraft} only when the user hits "保存"
- * (explicit-save semantics) — so an accidental edit never touches localStorage
- * until confirmed.
- */
-export interface SettingsDraft {
-  endpoint: string
-  apiKey: string
-  model: string
-  explanationStyle: ExplanationStyle
-  ttsVoice: string
-  ttsRate: string
-  ttsVolume: string
-  ttsPitch: string
-  ttsProxy: string
-  customActions: Action[]
 }
 
 export const useSettingsStore = defineStore('settings', {
@@ -106,49 +91,17 @@ export const useSettingsStore = defineStore('settings', {
 
   actions: {
     updateEndpoint(value: string) {
-      this.endpoint = value
-      saveString(STORAGE_KEYS.endpoint, value)
-    },
-
-    /**
-     * Commit a panel draft to the store and persist it. Normalizes the TTS
-     * fields exactly like the individual `updateTts*` actions so a saved draft
-     * behaves identically to per-field edits. Clears the API key's transient
-     * show/hide concern by storing it verbatim.
-     */
-    applyDraft(draft: SettingsDraft) {
-      this.endpoint = draft.endpoint.trim()
-      this.apiKey = draft.apiKey
-      this.model = draft.model.trim()
-      this.explanationStyle =
-        draft.explanationStyle === 'plain' || draft.explanationStyle === 'eli5'
-          ? draft.explanationStyle
-          : 'default'
-      this.ttsVoice = draft.ttsVoice.trim() || DEFAULT_TTS.voice
-      this.ttsRate = draft.ttsRate.trim() || DEFAULT_TTS.rate
-      this.ttsVolume = draft.ttsVolume.trim() || DEFAULT_TTS.volume
-      this.ttsPitch = draft.ttsPitch.trim() || DEFAULT_TTS.pitch
-      this.ttsProxy = draft.ttsProxy.trim()
-      this.customActions = draft.customActions.map((a) => ({ ...a }))
-
+      this.endpoint = value.trim()
       saveString(STORAGE_KEYS.endpoint, this.endpoint)
-      saveString(STORAGE_KEYS.apiKey, this.apiKey)
-      saveString(STORAGE_KEYS.model, this.model)
-      saveString(STORAGE_KEYS.explanationStyle, this.explanationStyle)
-      saveString(STORAGE_KEYS.ttsVoice, this.ttsVoice)
-      saveString(STORAGE_KEYS.ttsRate, this.ttsRate)
-      saveString(STORAGE_KEYS.ttsVolume, this.ttsVolume)
-      saveString(STORAGE_KEYS.ttsPitch, this.ttsPitch)
-      saveString(STORAGE_KEYS.ttsProxy, this.ttsProxy)
-      saveJson(STORAGE_KEYS.customActions, this.customActions)
     },
+
     updateApiKey(value: string) {
       this.apiKey = value
       saveString(STORAGE_KEYS.apiKey, value)
     },
     updateModel(value: string) {
-      this.model = value
-      saveString(STORAGE_KEYS.model, value)
+      this.model = value.trim()
+      saveString(STORAGE_KEYS.model, this.model)
     },
 
     updateExplanationStyle(value: ExplanationStyle) {

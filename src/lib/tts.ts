@@ -48,6 +48,13 @@ export const isWordSpeaking = ref(false)
 export const currentText = ref('')
 /** Whether the read-aloud panel is open (CONTEXT.md: 朗读面板). */
 export const isOpen = ref(false)
+/**
+ * When the panel is open, `true` shows the compact 迷你播放器; `false` the full
+ * transcript sheet (CONTEXT.md: 迷你播放器). Defaults to mini on each new
+ * `speak`, so playback starts unobtrusively and the user expands only to look
+ * words up.
+ */
+export const isCollapsed = ref(false)
 /** Playback position in seconds (mirrors the <audio> element). */
 export const currentTime = ref(0)
 /** Total track duration in seconds (0 until metadata loads). */
@@ -141,7 +148,11 @@ async function requestBlob(
  * playing/synthesizing speech is stopped first. Rejects (and sets `ttsError`)
  * if the request or playback fails (e.g. network blocked, invalid endpoint).
  */
-export async function speak(text: string, cfg: TtsConfig): Promise<void> {
+export async function speak(
+  text: string,
+  cfg: TtsConfig,
+  opts?: { expand?: boolean },
+): Promise<void> {
   const trimmed = text.trim()
   if (!trimmed) return
   stop()
@@ -152,6 +163,9 @@ export async function speak(text: string, cfg: TtsConfig): Promise<void> {
 
   isSynthesizing.value = true
   isOpen.value = true
+  // Default to the compact mini-player. Callers that want the user to *read*
+  // rather than just listen (e.g. a voice preview) pass `{ expand: true }`.
+  isCollapsed.value = !opts?.expand
   currentText.value = trimmed
   currentTime.value = 0
   duration.value = 0
@@ -243,9 +257,20 @@ export function stop(): void {
 export function close(): void {
   stop()
   isOpen.value = false
+  isCollapsed.value = false
   currentText.value = ''
   currentTime.value = 0
   duration.value = 0
+}
+
+/** Expand the mini-player into the full read-aloud sheet (CONTEXT.md: 迷你播放器). */
+export function expand(): void {
+  if (isOpen.value) isCollapsed.value = false
+}
+
+/** Collapse the full sheet back to the mini-player; playback continues. */
+export function collapse(): void {
+  if (isOpen.value) isCollapsed.value = true
 }
 
 /**

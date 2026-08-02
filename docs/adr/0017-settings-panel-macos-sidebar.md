@@ -1,6 +1,6 @@
 # ADR-0017 — 设置面板重构为 macOS 式侧栏 + 即时应用
 
-- **状态**：已采纳（待实现）
+- **状态**：已采纳（已实施）
 - **日期**：2026-08-02
 - **决策人**：产品 / CodeBuddy（grilling 会话）
 
@@ -23,9 +23,10 @@
 - **保留显式保存 / 混合（端点组显式）**：即时应用更贴合 macOS 锚点、更简洁；本地数据可随时重编辑，「取消」价值低，否决。
 - **整页路由呈现**：离开阅读上下文、打断阅读，否决。
 
-## 影响（待实现）
+## 影响（已实施）
 
 - 重构 `SettingsPanel.vue`：侧栏 + 详情结构；桌面右滑出、移动下钻；移除 draft/页脚/dirty 逻辑。
-- `stores/settings.ts`：现有逐字段 `update*`/write-through action 可直接复用，`applyDraft` 与 dirty 路径移除。
-- `BottomTabBar.vue` / `ui` store 的「设置」打开态适配新形态。
-- 不改变业务逻辑、存储键或 API 调用；纯界面与交互层改动，且须对齐 ADR-0012 令牌。
+- `stores/settings.ts`：现有逐字段 `update*`/write-through action 直接复用，`applyDraft` 与 `SettingsDraft` 已移除；`runEndpointTest` 现在探测实时 store 值。
+- `CustomActionsSettings.vue`：改为直接操作 settings store（即时增删改），不再经 v-model draft。
+- `BottomTabBar.vue` / `ui` store 的「设置」打开态适配新形态（面板以 `v-if` 挂载，打开时初始化视图）。
+- 不改变业务逻辑、存储键或 API 调用；纯界面与交互层改动，且对齐 ADR-0012 令牌。

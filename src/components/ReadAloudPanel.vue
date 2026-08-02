@@ -21,6 +21,7 @@ import {
   seek,
   download,
   close,
+  collapse,
   speakWord,
   buildReadAloudFileName,
 } from '../lib/tts'
@@ -238,6 +239,15 @@ onBeforeUnmount(() => {
   <div v-if="isOpen" class="read-aloud-panel" role="dialog" aria-label="朗读面板">
     <header class="ra-header">
       <span class="ra-title">朗读</span>
+      <button
+        class="icon-button"
+        type="button"
+        aria-label="收起"
+        title="收起为迷你播放器"
+        @click="collapse"
+      >
+        ⌄
+      </button>
       <button class="icon-button" type="button" aria-label="关闭" @click="close">
         ✕
       </button>

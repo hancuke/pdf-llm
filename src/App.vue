@@ -11,7 +11,9 @@ import SearchBar from './components/SearchBar.vue'
 import CommandPalette from './components/CommandPalette.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import ReadAloudPanel from './components/ReadAloudPanel.vue'
+import ReadAloudMiniPlayer from './components/ReadAloudMiniPlayer.vue'
 import BottomTabBar from './components/BottomTabBar.vue'
+import { isOpen, isCollapsed } from './lib/tts'
 
 const reader = useReaderStore()
 const ui = useUiStore()
@@ -110,7 +112,8 @@ onBeforeUnmount(() => {
     />
     <SettingsPanel v-if="ui.settingsOpen" />
 
-    <ReadAloudPanel />
+    <ReadAloudMiniPlayer v-if="isOpen && isCollapsed" />
+    <ReadAloudPanel v-else-if="isOpen && !isCollapsed" />
 
     <BottomTabBar />
 
