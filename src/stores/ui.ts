@@ -70,6 +70,8 @@ export const useUiStore = defineStore('ui', {
     commandPaletteOpen: false,
     /** In-PDF search bar visibility. */
     searchOpen: false,
+    /** Active tab inside the left panel: 目录 / 书签 / 生词本. */
+    leftTab: 'outline' as 'outline' | 'bookmarks' | 'vocab',
     /** Current zoom scale (1 = 100%), kept in sync from the viewer. */
     currentZoom: 1,
     /** Active fit mode, or null when the zoom is a plain scale factor. */
@@ -109,6 +111,22 @@ export const useUiStore = defineStore('ui', {
     toggleConversation() {
       this.conversationOpen = !this.conversationOpen
       saveBoolean(STORAGE_KEYS.conversationOpen, this.conversationOpen)
+    },
+
+    /**
+     * Switch the active left-panel tab (目录 / 书签 / 生词本) and ensure the
+     * left panel is open. Tapping the same tab while it is already open closes
+     * the panel — mirrors the toggle behavior of the other tabs.
+     */
+    toggleLeftTab(tab: 'outline' | 'bookmarks' | 'vocab') {
+      if (this.outlineOpen && this.leftTab === tab) {
+        this.outlineOpen = false
+        saveBoolean(STORAGE_KEYS.outlineOpen, false)
+      } else {
+        this.leftTab = tab
+        this.outlineOpen = true
+        saveBoolean(STORAGE_KEYS.outlineOpen, true)
+      }
     },
 
     openOutline() {

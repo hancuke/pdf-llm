@@ -1,7 +1,9 @@
 // Seam 1 unit tests for the settings store.
 // Covers spec story 18 (endpoint test states: idle → loading → ok/fail),
-// ADR-0013 (the external-request disclosure toggle), and the Custom Action
-// CRUD that backs the draft-preserving settings panel. LLM probe is mocked.
+// ADR-0013 (the external-request disclosure toggle), the Custom Action
+// CRUD, and the immediate-apply write-through model (ADR-0017 — no draft,
+// every field persists straight to localStorage via its `update*` action).
+// LLM probe is mocked.
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
@@ -131,5 +133,39 @@ describe('settings store — custom actions CRUD', () => {
 
     settings.removeCustomAction(created.id)
     expect(settings.customActionById(created.id)).toBeUndefined()
+  })
+})
+
+describe('settings store — immediate-apply write-through (ADR-0017)', () => {
+  it('persists endpoint/api-key/model straight to state on edit (no draft)', () => {
+    const settings = useSettingsStore()
+    settings.updateEndpoint('  https://api.example.com/v1  ')
+    settings.updateApiKey('sk-xyz')
+    settings.updateModel('gpt-4o-mini')
+
+    expect(settings.endpoint).toBe('https://api.example.com/v1')
+    expect(settings.apiKey).toBe('sk-xyz')
+    expect(settings.model).toBe('gpt-4o-mini')
+    // No applyDraft step: the live getters already reflect the edit.
+    expect(settings.isConfigured).toBe(true)
+  })
+
+  it('persists TTS and explanation-style edits immediately', () => {
+    const settings = useSettingsStore()
+    settings.updateExplanationStyle('eli5')
+    settings.updateTtsVoice('zh-CN-YunxiNeural')
+    settings.updateTtsRate('+20%')
+    settings.updateTtsVolume('+0%')
+    settings.updateTtsPitch('+10Hz')
+    settings.updateTtsProxy('https://self.host/tts')
+
+    expect(settings.explanationStyle).toBe('eli5')
+    expect(settings.ttsConfig).toEqual({
+      voice: 'zh-CN-YunxiNeural',
+      rate: '+20%',
+      volume: '+0%',
+      pitch: '+10Hz',
+      proxy: 'https://self.host/tts',
+    })
   })
 })

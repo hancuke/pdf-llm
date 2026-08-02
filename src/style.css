@@ -183,6 +183,7 @@ body {
 
 /* PDF viewer */
 .pdf-viewer {
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -304,19 +305,21 @@ body {
 }
 
 .empty-state {
-  flex: 1;
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
   text-align: center;
-  color: #86868b;
+  color: var(--text-muted);
   padding: 40px;
-  
+  background: var(--bg);
 }
 .empty-title {
   font-size: 18px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text);
 }
 .empty-hint {
   margin: 8px 0 20px;
@@ -641,16 +644,17 @@ body {
   font-size: 14px;
 }
 
-/* Settings — redesigned to match the app's iOS design language.
-   All colors come from CSS variables so the three themes stay coherent. */
+/* Settings — macOS System Settings–style redesign (ADR-0017).
+   Desktop: a right slide-over with the PDF visible behind a scrim; a left
+   category rail + detail pane. Mobile: a bottom drawer that drills down
+   (category list → detail). Visual language follows ADR-0012 (「沉静编辑式」:
+   solid surfaces, soft shadows + hairline borders, NO frosted glass). */
 .settings-overlay {
   position: fixed;
   inset: 0;
   background: rgba(20, 20, 18, 0.4);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
+  justify-content: flex-end;
   z-index: 200;
   animation: overlay-in var(--motion) ease-out;
 }
@@ -662,38 +666,39 @@ body {
     opacity: 1;
   }
 }
-.settings-panel {
+.settings-shell {
+  position: relative;
+  height: 100%;
+  width: min(760px, 94vw);
   background: var(--surface);
   color: var(--text);
-  width: min(560px, 92vw);
-  max-height: 88vh;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-left: 1px solid var(--border);
   box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: panel-in var(--motion) ease-out;
+  animation: shell-in var(--motion) ease-out;
 }
-@keyframes panel-in {
+@keyframes shell-in {
   from {
     opacity: 0;
-    transform: scale(0.98) translateY(6px);
+    transform: translateX(24px);
   }
   to {
     opacity: 1;
     transform: none;
   }
 }
-.settings-header {
+.settings-shell-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
+  flex: 0 0 auto;
 }
-.settings-header h2 {
+.settings-shell-header h2 {
   margin: 0;
   font-size: 17px;
   font-weight: 600;
@@ -714,7 +719,65 @@ body {
   color: var(--text);
   background: var(--hover);
 }
-.settings-body {
+.settings-split {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.settings-sidebar {
+  width: 200px;
+  flex: 0 0 auto;
+  border-right: 1px solid var(--border);
+  background: var(--surface-2);
+  padding: 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.settings-sidebar-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 9px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.settings-sidebar-item:hover {
+  background: var(--hover);
+}
+.settings-sidebar-item.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 500;
+}
+.settings-detail {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.settings-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+.settings-detail-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.settings-detail-body {
   padding: 20px;
   overflow-y: auto;
   flex: 1;
@@ -841,6 +904,21 @@ body {
 .field-input.invalid {
   border-color: var(--danger);
 }
+/* Native <select> used for the voice picker: remove the OS chrome and draw a
+   caret, since setting `background` hides the browser's default arrow. */
+select.field-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 36px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+.custom-voice-input {
+  margin-top: 8px;
+}
 .field-error {
   display: block;
   margin-top: 6px;
@@ -966,30 +1044,9 @@ body {
   accent-color: var(--accent);
   cursor: pointer;
 }
-/* Footer */
-.settings-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 20px;
-  border-top: 1px solid var(--border);
-  background: var(--surface);
-}
-.dirty-hint {
-  font-size: 12px;
-  color: var(--text-muted);
-  transition: color 0.15s ease;
-}
-.dirty-hint.show {
-  color: var(--accent);
-}
-.footer-actions {
-  display: flex;
-  gap: 10px;
-}
 
-/* Settings on mobile: bottom sheet, consistent with the pane drawers. */
+/* Settings on mobile: bottom drawer (consistent with the pane drawers),
+   drilling down from the category list to a detail pane. */
 @media (max-width: 768px) {
   .settings-overlay {
     align-items: flex-end;
@@ -997,21 +1054,25 @@ body {
     padding: 0;
     background: rgba(0, 0, 0, 0.4);
   }
-  .settings-panel {
+  .settings-shell {
     width: 100%;
     max-width: 100%;
-    max-height: 90vh;
+    height: 90vh;
     border: none;
     border-top: 1px solid var(--border);
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -8px 32px var(--shadow-color);
     animation: sheet-in 0.28s cubic-bezier(0.32, 0.72, 0, 1);
   }
-  .settings-header {
+  /* Right-to-left slide doesn't fit a bottom drawer: swap to an upward sheet. */
+  .settings-shell {
+    animation-name: sheet-in;
+  }
+  .settings-shell-header {
     position: relative;
     padding-top: 20px;
   }
-  .settings-header::before {
+  .settings-shell-header::before {
     content: '';
     position: absolute;
     top: 8px;
@@ -1023,8 +1084,26 @@ body {
     background: var(--text-muted);
     opacity: 0.4;
   }
-  .settings-footer {
-    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+  .settings-split {
+    flex-direction: column;
+  }
+  .settings-sidebar {
+    width: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-detail-body {
+    padding: 16px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
   }
 }
 
@@ -1276,6 +1355,73 @@ body {
 }
 .add-bookmark:hover {
   background: var(--hover);
+}
+
+/* Vocabulary book (CONTEXT.md: 生词本) — shares the left panel with 目录/书签. */
+.vocab-book {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.vocab-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 12px;
+  margin: 0;
+}
+.vocab-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 8px 8px 4px;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+}
+.vocab-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.vocab-item {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.vocab-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.vocab-word {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0;
+}
+.vocab-word:hover {
+  text-decoration: underline;
+}
+.vocab-phon {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.vocab-context {
+  margin: 4px 0 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.vocab-actions {
+  display: flex;
+  gap: 10px;
 }
 
 /* ----------------------------------------------------------------------- */

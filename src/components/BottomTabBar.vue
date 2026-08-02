@@ -6,7 +6,8 @@ import { useReaderStore } from '../stores/reader'
 
 const ui = useUiStore()
 const reader = useReaderStore()
-const { outlineOpen, conversationOpen, searchOpen, settingsOpen } = storeToRefs(ui)
+const { outlineOpen, conversationOpen, searchOpen, settingsOpen, leftTab } =
+  storeToRefs(ui)
 
 const fileInput = ref<HTMLInputElement | null>(null)
 
@@ -40,8 +41,8 @@ async function onFile(event: Event) {
     <button
       class="tab"
       type="button"
-      :class="{ active: outlineOpen }"
-      @click="ui.toggleOutline()"
+      :class="{ active: outlineOpen && leftTab === 'outline' }"
+      @click="ui.toggleLeftTab('outline')"
     >
       <span class="tab-icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>
@@ -71,6 +72,18 @@ async function onFile(event: Event) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.8A8 8 0 1 1 21 12z"/></svg>
       </span>
       <span class="tab-label">对话</span>
+    </button>
+
+    <button
+      class="tab"
+      type="button"
+      :class="{ active: outlineOpen && leftTab === 'vocab' }"
+      @click="ui.toggleLeftTab('vocab')"
+    >
+      <span class="tab-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h7v16H6a2 2 0 0 0-2 2zM20 5a2 2 0 0 0-2-2h-7v16h7a2 2 0 0 1 2 2z"/></svg>
+      </span>
+      <span class="tab-label">生词本</span>
     </button>
 
     <button

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useSettingsStore } from '../stores/settings'
 import { useReaderStore } from '../stores/reader'
 import { useUiStore } from '../stores/ui'
+import { useVocabStore } from '../stores/vocab'
 import {
   isOpen,
   isPaused,
@@ -29,6 +30,7 @@ import { fetchPhonetics } from '../lib/phonetics'
 const settings = useSettingsStore()
 const reader = useReaderStore()
 const ui = useUiStore()
+const vocab = useVocabStore()
 
 /**
  * Read-aloud + phonetics send the selected word/text to third-party endpoints
@@ -95,20 +97,30 @@ const popoverStyle = ref<{ left: string; top: string }>({ left: '0px', top: '0px
 const popoverEl = ref<HTMLElement | null>(null)
 
 async function onWordClick(word: string, event: MouseEvent) {
-  const target = event.currentTarget as HTMLElement
-  const rect = target.getBoundingClientRect()
-  // Anchor just below the word, clamped so it stays on screen.
-  const left = Math.min(rect.left, window.innerWidth - 200)
-  popoverStyle.value = { left: `${Math.max(8, left)}px`, top: `${rect.bottom + 6}px` }
-
   // Toggle off if tapping the same word again.
   if (activeWord.value === word) {
     closePopover()
     return
   }
 
+  const target = event.currentTarget as HTMLElement
+  const rect = target.getBoundingClientRect()
+
+  // The read-aloud panel is anchored at the bottom, so words sit low on
+  // screen. A popover that always opens *below* the word would run off-screen
+  // (and could be clipped). Open above the word when there isn't room below.
+  const estHeight = 140
+  const openAbove = window.innerHeight - rect.bottom < estHeight + 8
+  const top = openAbove ? rect.top - estHeight - 6 : rect.bottom + 6
+  const left = Math.min(rect.left, window.innerWidth - 8 - 220)
+  popoverStyle.value = { left: `${Math.max(8, left)}px`, top: `${top}px` }
+
   activeWord.value = word
   wordPhonetics.value = []
+  // Re-measure once laid out, then correct placement (precise flip + clamp).
+  await nextTick()
+  clampPopover(rect)
+
   // Honor the external-request opt-out (ADR-0013): no TTS/phonetics call.
   if (!requireExternal()) return
   // Pronounce immediately (CONTEXT.md: 单词发音) — reuses the TTS proxy.
@@ -119,12 +131,63 @@ async function onWordClick(word: string, event: MouseEvent) {
   // request was in flight, only apply the IPA when this word is still active.
   if (activeWord.value !== word) return
   wordPhonetics.value = phonetics
+  // Content height changed (IPA lines added) — re-clamp.
+  await nextTick()
+  clampPopover(rect)
+}
+
+/**
+ * Nudge the already-rendered popover so it stays fully on screen: flip above
+ * the word if it would overflow the bottom, and clamp horizontally to the
+ * viewport. Reads the popover's live measured rect, so it works regardless of
+ * how many IPA lines are present.
+ */
+function clampPopover(rect: DOMRect) {
+  const el = popoverEl.value
+  if (!el) return
+  const pr = el.getBoundingClientRect()
+  let top = pr.top
+  if (pr.bottom > window.innerHeight - 8) {
+    top = rect.top - pr.height - 6
+    if (top < 8) top = 8
+  }
+  let left = pr.left
+  if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - 8 - pr.width
+  if (left < 8) left = 8
+  popoverStyle.value = { left: `${left}px`, top: `${top}px` }
 }
 
 function closePopover() {
   activeWord.value = null
   wordPhonetics.value = []
 }
+
+/**
+ * Toggle the active word in/out of the 生词本 (CONTEXT.md: 词汇卡 / 生词本).
+ * Collection never sends data to a 3rd party, so it works even when external
+ * requests are disabled (ADR-0013) — only `phonetics` may be empty then.
+ */
+function onCollect() {
+  if (!activeWord.value) return
+  const word = activeWord.value
+  const wasCollected = vocab.isCollected(word, reader.fileName)
+  vocab.toggle({
+    word,
+    phonetics: wordPhonetics.value.join(' / '),
+    context: currentText.value,
+    documentTitle: reader.documentTitle,
+    fileName: reader.fileName,
+    pageIndex: reader.hasDocument
+      ? (reader.currentSelection?.page ?? ui.currentPage) - 1
+      : null,
+  })
+  if (!wasCollected) ui.showToast('已加入生词本')
+}
+
+/** Whether the active word is already in the 生词本 (drives the button label). */
+const collected = computed(() =>
+  activeWord.value ? vocab.isCollected(activeWord.value, reader.fileName) : false,
+)
 
 function onDownload() {
   const name = buildReadAloudFileName(reader.documentTitle, currentText.value)
@@ -258,6 +321,16 @@ onBeforeUnmount(() => {
       </ul>
       <div v-else-if="isWordSpeaking" class="ra-popover-sub">发音中…</div>
       <div v-else class="ra-popover-sub">无音标（仅支持英文）</div>
+      <div class="ra-popover-foot">
+        <button
+          class="ra-collect"
+          type="button"
+          :class="{ active: collected }"
+          @click="onCollect"
+        >
+          {{ collected ? '已收藏' : '收藏' }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -399,6 +472,35 @@ onBeforeUnmount(() => {
   font-size: 12px;
   opacity: 0.7;
   margin-top: 4px;
+}
+
+.ra-popover-foot {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.ra-collect {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--motion-fast) ease, color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease;
+}
+
+.ra-collect:hover {
+  background: var(--hover);
+}
+
+.ra-collect.active {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: transparent;
 }
 
 .ra-phonetics {

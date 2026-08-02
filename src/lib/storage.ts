@@ -21,6 +21,7 @@ export const STORAGE_KEYS = {
   bookmarks: `${PREFIX}bookmarks`,
   lastPositions: `${PREFIX}lastPositions`,
   externalRequests: `${PREFIX}externalRequests`,
+  vocabBook: `${PREFIX}vocabBook`,
 } as const
 
 function hasLocalStorage(): boolean {

@@ -1,15 +1,16 @@
 <script setup lang="ts">
-// Custom Actions editor (CONTEXT.md: "自定义动作"). Operates on a draft list
-// passed in via v-model:actions, so nothing is persisted until the parent
-// SettingsPanel commits the whole draft. Inserts template variables
+// Custom Actions editor (CONTEXT.md: "自定义动作"). Under the immediate-apply
+// model (ADR-0017) it mutates the settings store directly — every add / edit /
+// remove persists straight to localStorage via the store's actions, so there
+// is no draft and no outer "保存" button. Inserts template variables
 // ({{context}} / {{selection}} / {{title}} / {{block}}) the rest of the app
 // supports but the old UI never exposed.
 
-import { ref, watch, nextTick } from 'vue'
+import { ref, nextTick } from 'vue'
+import { useSettingsStore } from '../stores/settings'
 import type { Action } from '../lib/actions'
-import { createId } from '../lib/storage'
 
-const actions = defineModel<Action[]>('actions', { required: true })
+const settings = useSettingsStore()
 
 /** Template variables the prompt renderer understands (lib/actions.ts). */
 const VARIABLES = [
@@ -24,19 +25,6 @@ const draftLabel = ref('')
 const draftTemplate = ref('')
 const confirmId = ref<string | null>(null)
 
-/**
- * True while the inline add/edit form has unsaved content. Surfaced to the
- * parent so the outer 保存 can be disabled — preventing a silent loss of a
- * custom action the user composed but forgot to "添加动作" (spec story 16).
- */
-const staged = defineModel<boolean>('staged', { default: false })
-watch(
-  [draftLabel, draftTemplate],
-  () => {
-    staged.value = draftLabel.value.trim().length > 0 || draftTemplate.value.length > 0
-  },
-  { immediate: true },
-)
 const labelInput = ref<HTMLInputElement | null>(null)
 const templateInput = ref<HTMLTextAreaElement | null>(null)
 
@@ -63,22 +51,14 @@ function editAction(action: Action) {
 function save() {
   const label = draftLabel.value.trim()
   if (!label) return
-  const next: Action[] = editingId.value
-    ? actions.value.map((a) =>
-        a.id === editingId.value
-          ? { ...a, label, template: draftTemplate.value }
-          : a,
-      )
-    : [
-        ...actions.value,
-        {
-          id: createId(),
-          label,
-          template: draftTemplate.value,
-          builtin: false,
-        },
-      ]
-  actions.value = next
+  if (editingId.value) {
+    settings.updateCustomAction(editingId.value, {
+      label,
+      template: draftTemplate.value,
+    })
+  } else {
+    settings.addCustomAction(label, draftTemplate.value)
+  }
   resetForm()
 }
 
@@ -89,7 +69,7 @@ function askRemove(id: string) {
 function confirmRemove() {
   if (confirmId.value) {
     if (editingId.value === confirmId.value) resetForm()
-    actions.value = actions.value.filter((a) => a.id !== confirmId.value)
+    settings.removeCustomAction(confirmId.value)
   }
   confirmId.value = null
 }
@@ -120,9 +100,9 @@ function insertVar(token: string) {
 
 <template>
   <div class="custom-actions">
-    <ul v-if="actions.length" class="custom-list">
+    <ul v-if="settings.customActions.length" class="custom-list">
       <li
-        v-for="action in actions"
+        v-for="action in settings.customActions"
         :key="action.id"
         class="custom-item"
         :class="{ editing: action.id === editingId }"
@@ -210,7 +190,7 @@ function insertVar(token: string) {
     </div>
 
     <button
-      v-if="!editingId && actions.length"
+      v-if="!editingId && settings.customActions.length"
       class="link-button add-another"
       type="button"
       @click="startAdd"
