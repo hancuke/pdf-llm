@@ -30,14 +30,18 @@ export const useBookmarkStore = defineStore('bookmarks', {
   },
 
   actions: {
-    /** Persist a bookmark at an explicit position. */
-    addBookmark(fileName: string, position: ReadingPosition): void {
+    /** Persist a bookmark at an explicit position; `label` is optional (story 26). */
+    addBookmark(
+      fileName: string,
+      position: ReadingPosition,
+      label?: string,
+    ): void {
       const list = this.byDocument[fileName] ?? []
       const bookmark: Bookmark = {
         id: createId(),
         pageIndex: position.pageIndex,
         alignY: position.alignY,
-        label: `第 ${position.pageIndex + 1} 页`,
+        label: label?.trim() || `第 ${position.pageIndex + 1} 页`,
         createdAt: Date.now(),
       }
       this.byDocument = {
@@ -50,16 +54,28 @@ export const useBookmarkStore = defineStore('bookmarks', {
     /**
      * Capture the current reading position (page + vertical fraction) from the
      * live viewer and store it as a bookmark. Single source of truth shared by
-     * the ⌘D shortcut, the bookmarks panel, and the command palette.
+     * the ⌘D shortcut, the bookmarks panel, and the command palette. `label`
+     * lets the user add an optional name/note so multiple bookmarks are
+     * distinguishable (story 26).
      */
-    addBookmarkAtCurrentPosition(fileName: string): void {
+    addBookmarkAtCurrentPosition(fileName: string, label?: string): void {
       if (!fileName) return
       const position =
         getReadingPosition() ?? {
           pageIndex: getCurrentPage() - 1,
           alignY: 0,
         }
-      this.addBookmark(fileName, position)
+      this.addBookmark(fileName, position, label)
+    },
+
+    /** Rename a bookmark (keeps only page + position — no document content). */
+    updateBookmarkLabel(fileName: string, id: string, label: string): void {
+      const list = this.byDocument[fileName] ?? []
+      const next = list.map((b) =>
+        b.id === id ? { ...b, label: label.trim() || b.label } : b,
+      )
+      this.byDocument = { ...this.byDocument, [fileName]: next }
+      saveJson(STORAGE_KEYS.bookmarks, this.byDocument)
     },
 
     removeBookmark(fileName: string, id: string): void {

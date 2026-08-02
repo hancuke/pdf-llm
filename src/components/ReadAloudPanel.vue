@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useSettingsStore } from '../stores/settings'
 import { useReaderStore } from '../stores/reader'
+import { useUiStore } from '../stores/ui'
 import {
   isOpen,
   isPaused,
@@ -15,6 +16,7 @@ import {
   pause,
   resume,
   replay,
+  stop,
   seek,
   download,
   close,
@@ -26,6 +28,18 @@ import { fetchPhonetics } from '../lib/phonetics'
 
 const settings = useSettingsStore()
 const reader = useReaderStore()
+const ui = useUiStore()
+
+/**
+ * Read-aloud + phonetics send the selected word/text to third-party endpoints
+ * (ADR-0013). When the user has disabled external requests in Settings, block
+ * the request and explain why instead of silently firing it.
+ */
+function requireExternal(): boolean {
+  if (settings.externalRequestsEnabled) return true
+  ui.showToast('已在设置中关闭朗读 / 音标外部请求')
+  return false
+}
 
 /** Word segments of the active read-aloud text (CONTEXT.md: 词单元). */
 const segments = computed(() => segmentWords(currentText.value))
@@ -41,21 +55,28 @@ const canControl = computed(() => duration.value > 0)
  * - ended/idle (track fully loaded) → ▶ to replay from the start
  */
 const primaryIcon = computed(() => {
-  if (isSynthesizing.value) return '…'
+  if (isSynthesizing.value) return '✕'
   if (isPaused.value) return '▶'
   if (isSpeaking.value) return '❚❚'
   return '▶'
 })
 const primaryLabel = computed(() => {
+  if (isSynthesizing.value) return '停止'
   if (isPaused.value) return '继续'
   if (isSpeaking.value) return '暂停'
   if (canControl.value) return '重新播放'
   return '暂停'
 })
 function onPrimary() {
-  if (isPaused.value) resume()
+  if (isSynthesizing.value) stop()
+  else if (isPaused.value) resume()
   else if (isSpeaking.value) pause()
-  else replay()
+  else if (requireExternal()) replay()
+}
+
+/** Replay button — also respects the external-request opt-out (ADR-0013). */
+function onReplay() {
+  if (requireExternal()) replay()
 }
 
 function formatTime(seconds: number): string {
@@ -88,6 +109,8 @@ async function onWordClick(word: string, event: MouseEvent) {
 
   activeWord.value = word
   wordPhonetics.value = []
+  // Honor the external-request opt-out (ADR-0013): no TTS/phonetics call.
+  if (!requireExternal()) return
   // Pronounce immediately (CONTEXT.md: 单词发音) — reuses the TTS proxy.
   void speakWord(word, settings.ttsConfig)
   // Fetch IPA (CONTEXT.md: 单词音标). Empty result → no phonetics shown.
@@ -118,8 +141,34 @@ function onDocClick(event: MouseEvent) {
   closePopover()
 }
 
-onMounted(() => document.addEventListener('click', onDocClick))
-onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
+// Dismiss the whole panel via Esc or an outside click (spec story 13).
+function onPanelKey(event: KeyboardEvent) {
+  if (event.key === 'Escape' && isOpen.value) {
+    close()
+    // Stop the event reaching the global handler so opening Settings while the
+    // read-aloud panel is up doesn't close both at once (spec story 12).
+    event.stopPropagation()
+  }
+}
+function onPanelOutside(event: MouseEvent) {
+  if (!isOpen.value) return
+  const target = event.target as HTMLElement
+  if (target.closest('.read-aloud-panel')) return
+  // Clicks inside the Settings modal are not "outside" the read-aloud panel.
+  if (target.closest('.settings-overlay')) return
+  close()
+}
+
+onMounted(() => {
+  document.addEventListener('click', onDocClick)
+  document.addEventListener('keydown', onPanelKey)
+  document.addEventListener('click', onPanelOutside, true)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocClick)
+  document.removeEventListener('keydown', onPanelKey)
+  document.removeEventListener('click', onPanelOutside, true)
+})
 </script>
 
 <template>
@@ -138,7 +187,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
         :disabled="!canControl"
         aria-label="重新播放"
         title="重新播放"
-        @click="replay"
+        @click="onReplay"
       >
         ↺
       </button>
@@ -219,11 +268,11 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 130;
+  z-index: 210;
   background: var(--surface, #fff);
   color: var(--text, #111);
   border-top: 1px solid var(--border, #e5e7eb);
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 -8px 24px var(--shadow-color, rgba(0, 0, 0, 0.12));
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
   max-height: 60vh;
   display: flex;
@@ -269,8 +318,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 
 .ra-primary {
-  background: var(--accent, #2563eb);
-  color: #fff;
+  background: var(--accent, #5b5bd6);
+  color: var(--accent-contrast, #fff);
   border-color: transparent;
 }
 
@@ -285,7 +334,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 .ra-progress {
   flex: 1;
-  accent-color: var(--accent, #2563eb);
+  accent-color: var(--accent, #5b5bd6);
 }
 
 .ra-words {
@@ -302,13 +351,13 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 .word-unit {
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 0 1px;
-  transition: background 0.12s ease;
+  transition: background var(--motion-fast) ease;
 }
 
 .word-unit:hover {
-  background: var(--accent-soft, rgba(37, 99, 235, 0.12));
+  background: var(--accent-soft, rgba(91, 91, 214, 0.12));
 }
 
 .ra-error {
@@ -362,5 +411,13 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 14px;
   padding: 2px 0;
+}
+
+/* On mobile, sit above the bottom Tab bar instead of covering it (story 14). */
+@media (max-width: 768px) {
+  .read-aloud-panel {
+    bottom: calc(52px + env(safe-area-inset-bottom));
+    max-height: 52vh;
+  }
 }
 </style>

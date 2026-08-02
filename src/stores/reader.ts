@@ -17,6 +17,7 @@ import type { ExtractedContext } from '../lib/types'
 import { flattenOutline, type OutlineItem } from '../lib/outline'
 import { normalizeSearchResults, type SearchHit } from '../lib/search'
 import { useConversationStore } from './conversation'
+import { useUiStore } from './ui'
 
 /** A resolved Selection plus the page it came from. */
 export type ActiveSelection = { page: number } & ExtractedContext
@@ -31,6 +32,8 @@ interface ReaderState {
   scannedWarning: boolean
   /** True while a newly selected file is being opened/parsed. */
   isLoading: boolean
+  /** Non-null when opening failed (corrupt / encrypted / unsupported). */
+  loadError: string | null
   /** Clean title (PDF metadata or first-page fallback); empty if undeterminable. */
   documentTitle: string
   currentSelection: ActiveSelection | null
@@ -43,6 +46,9 @@ interface ReaderState {
   /** True while a search is running. */
   searching: boolean
 }
+
+/** Copy of the last opened bytes, kept so a failed open can be retried. */
+let lastFileBytes: ArrayBuffer | null = null
 
 // The bytes of a pending file live outside reactive state until the viewer's
 // EmbedPDF engine opens them.
@@ -58,6 +64,7 @@ export const useReaderStore = defineStore('reader', {
     scannedWarning: false,
     currentSelection: null,
     isLoading: false,
+    loadError: null,
     documentTitle: '',
     outline: [],
     searchQuery: '',
@@ -76,7 +83,19 @@ export const useReaderStore = defineStore('reader', {
      * Kept engine-free per the headless EmbedPDF design (ADR-0001 / ADR-0004).
      */
     async loadFile(file: File): Promise<void> {
-      pendingBytes = await file.arrayBuffer()
+      // Reject non-PDF files at the boundary: a silent ignore leaves the user
+      // confused about why nothing happened (spec story 4).
+      const looksPdf =
+        file.type === 'application/pdf' ||
+        file.name.toLowerCase().endsWith('.pdf')
+      if (!looksPdf) {
+        useUiStore().showToast('仅支持 PDF 文件')
+        return
+      }
+      const bytes = await file.arrayBuffer()
+      // Keep a copy so a failed open can be retried (no re-read from disk).
+      lastFileBytes = bytes.slice(0)
+      pendingBytes = bytes
       this.fileName = file.name
       this.documentId += 1
       this.currentSelection = null
@@ -85,6 +104,7 @@ export const useReaderStore = defineStore('reader', {
       this.numPages = 0
       this.documentTitle = ''
       this.isLoading = true
+      this.loadError = null
       this.outline = []
       this.searchQuery = ''
       this.searchResults = []
@@ -101,6 +121,34 @@ export const useReaderStore = defineStore('reader', {
       const bytes = pendingBytes
       pendingBytes = null
       return bytes
+    },
+
+    /** Re-stage the last opened bytes for a fresh open attempt (retry path). */
+    retryLoad(): void {
+      if (!lastFileBytes) return
+      pendingBytes = lastFileBytes.slice(0)
+      this.documentId += 1
+      this.isLoading = true
+      this.loadError = null
+      setActiveDocument(null)
+    },
+
+    /** Surface a fatal open failure (corrupt / encrypted / unsupported). */
+    setLoadError(message: string): void {
+      this.loadError = message
+      this.isLoading = false
+    },
+
+    /** Dismiss the in-progress open (bounded loading with a cancel option). */
+    cancelLoad(): void {
+      this.isLoading = false
+      this.loadError = null
+      pendingBytes = null
+    },
+
+    /** Dismiss the "no text layer" notice (it is informational, not fatal). */
+    dismissScannedWarning(): void {
+      this.scannedWarning = false
     },
 
     /**

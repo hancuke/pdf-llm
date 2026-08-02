@@ -118,7 +118,7 @@ function gotoPage() {
 
     <div class="tb-group tb-right">
       <button
-        class="tb-button tb-hide-mobile"
+        class="tb-button"
         type="button"
         :title="`主题：${themeLabels[theme]} (点击切换)`"
         @click="ui.cycleTheme()"

@@ -133,16 +133,26 @@ async function openPending(): Promise<void> {
   const bytes = reader.consumePendingBytes()
   if (!bytes) return
 
-  const resp = await dm
-    .openDocumentBuffer({
-      buffer: bytes,
-      name: reader.fileName || 'document.pdf',
-      autoActivate: true,
-    })
-    .toPromise()
-  // Register the doc as active so the registry (and EmbedPDF's activeDocumentId
-  // slot prop) reflects it; the watcher below then wires selection + attaches.
-  dm.setActiveDocument(resp.documentId)
+  try {
+    const resp = await dm
+      .openDocumentBuffer({
+        buffer: bytes,
+        name: reader.fileName || 'document.pdf',
+        autoActivate: true,
+      })
+      .toPromise()
+    // Register the doc as active so the registry (and EmbedPDF's activeDocumentId
+    // slot prop) reflects it; the watcher below then wires selection + attaches.
+    dm.setActiveDocument(resp.documentId)
+  } catch (err) {
+    // Corrupt / encrypted / unsupported PDF — surface a recoverable error
+    // state with a retry path (spec story 3) instead of a dead spinner.
+    const message =
+      err instanceof Error && err.message
+        ? `无法打开该 PDF：${err.message}`
+        : '无法打开该 PDF（文件可能已损坏、加密或不被支持）。'
+    reader.setLoadError(message)
+  }
 }
 
 watch([() => reader.documentId, docManager], () => {

@@ -12,8 +12,11 @@ import {
   saveString,
   loadJson,
   saveJson,
+  loadBoolean,
+  saveBoolean,
   createId,
 } from '../lib/storage'
+import { testEndpoint as probeEndpoint } from '../lib/llm'
 
 /**
  * Read the persisted explanation style, validating it against the known union.
@@ -64,6 +67,11 @@ export const useSettingsStore = defineStore('settings', {
     ttsVolume: loadString(STORAGE_KEYS.ttsVolume) || DEFAULT_TTS.volume,
     ttsPitch: loadString(STORAGE_KEYS.ttsPitch) || DEFAULT_TTS.pitch,
     ttsProxy: loadString(STORAGE_KEYS.ttsProxy) || DEFAULT_TTS.proxy,
+    /** Whether read-aloud / phonetics may send selected text to 3rd-party APIs (ADR-0013). */
+    externalRequestsEnabled: loadBoolean(STORAGE_KEYS.externalRequests, true),
+    /** Endpoint connectivity probe status (story 18). */
+    endpointTestStatus: 'idle' as 'idle' | 'loading' | 'ok' | 'fail',
+    endpointTestMessage: '',
   }),
 
   getters: {
@@ -146,6 +154,45 @@ export const useSettingsStore = defineStore('settings', {
     updateExplanationStyle(value: ExplanationStyle) {
       this.explanationStyle = value
       saveString(STORAGE_KEYS.explanationStyle, value)
+    },
+
+    /** Toggle whether read-aloud / phonetics send selected text to 3rd-party APIs (ADR-0013). */
+    setExternalRequestsEnabled(value: boolean) {
+      this.externalRequestsEnabled = value
+      saveBoolean(STORAGE_KEYS.externalRequests, value)
+    },
+
+    /**
+     * Probe the configured endpoint's connectivity (story 18). Uses the
+     * default `fetch` (the browser's own network), so it reflects real CORS /
+     * reachability the UI will hit. Results are reflected in
+     * `endpointTestStatus` / `endpointTestMessage` for the panel to render.
+     *
+     * Accepts an optional override so the panel can test the in-progress DRAFT
+     * (explicit-save model) rather than the previously-saved values — editing
+     * the endpoint and clicking 测试连接 should probe what the user just typed.
+     */
+    async runEndpointTest(
+      override?: { endpoint: string; apiKey: string; model: string },
+    ): Promise<void> {
+      const endpoint = (override?.endpoint ?? this.endpoint).trim()
+      const apiKey = (override?.apiKey ?? this.apiKey).trim()
+      const model = (override?.model ?? this.model).trim()
+      if (!endpoint || !apiKey || !model) {
+        this.endpointTestStatus = 'fail'
+        this.endpointTestMessage = '请先填写端点、密钥与模型。'
+        return
+      }
+      this.endpointTestStatus = 'loading'
+      this.endpointTestMessage = ''
+      try {
+        const result = await probeEndpoint({ baseUrl: endpoint, apiKey, model })
+        this.endpointTestStatus = result.ok ? 'ok' : 'fail'
+        this.endpointTestMessage = result.message
+      } catch {
+        this.endpointTestStatus = 'fail'
+        this.endpointTestMessage = '测试连接时发生未知错误。'
+      }
     },
 
     updateTtsVoice(value: string) {

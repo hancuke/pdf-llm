@@ -169,12 +169,31 @@ async function onRead(text: string) {
     <div v-if="reader.isLoading" class="pdf-loading">
       <div class="spinner" />
       <span>正在打开文档…</span>
-    </div>
-    <div v-if="scannedWarning" class="scanned-warning">
-      该 PDF 没有可提取的文本层（可能是扫描件 / 图片 PDF），本应用不支持选中与解释。
+      <button class="pdf-loading-cancel" type="button" @click="reader.cancelLoad()">
+        取消
+      </button>
     </div>
 
-    <div v-if="!hasDocument" class="empty-state">
+    <div v-if="reader.loadError" class="pdf-error" role="alert">
+      <span class="pdf-error-msg">{{ reader.loadError }}</span>
+      <div class="pdf-error-actions">
+        <button class="btn-primary sm" type="button" @click="reader.retryLoad()">
+          重试
+        </button>
+        <button class="link-button" type="button" @click="reader.cancelLoad()">
+          关闭
+        </button>
+      </div>
+    </div>
+
+    <div v-if="scannedWarning" class="scanned-warning">
+      <span>该 PDF 没有可提取的文本层（可能是扫描件 / 图片 PDF），本应用不支持选中与解释。</span>
+      <button class="scanned-dismiss" type="button" aria-label="关闭提示" @click="reader.dismissScannedWarning()">
+        ✕
+      </button>
+    </div>
+
+    <div v-if="!hasDocument && !reader.isLoading && !reader.loadError" class="empty-state">
       <p class="empty-title">打开一个本地 PDF 开始阅读</p>
       <p class="empty-hint">拖拽文件到此处，或点击下方按钮选择</p>
       <label class="file-button">
@@ -189,7 +208,10 @@ async function onRead(text: string) {
           }"
         />
       </label>
-      <p class="privacy-note">文档仅在你的浏览器中处理，不会上传到任何服务器。</p>
+      <p class="privacy-note">
+        文档在你的浏览器本地处理。朗读、音标等功能的选中片段会发往相应第三方接口，
+        可在设置中关闭外部请求。
+      </p>
     </div>
 
     <EmbedPDF

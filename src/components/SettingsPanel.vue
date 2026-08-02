@@ -9,11 +9,11 @@
 // bottom drawer on mobile.
 
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useSettingsStore, type SettingsDraft } from '../stores/settings'
 import { useUiStore, type Theme } from '../stores/ui'
 import { EXPLANATION_STYLES } from '../lib/actions'
 import type { ExplanationStyle } from '../lib/types'
-import { testEndpoint } from '../lib/llm'
 import {
   speak,
   isSpeaking,
@@ -26,6 +26,8 @@ import CustomActionsSettings from './CustomActionsSettings.vue'
 
 const settings = useSettingsStore()
 const ui = useUiStore()
+const { endpointTestStatus, endpointTestMessage, externalRequestsEnabled } =
+  storeToRefs(settings)
 
 const DEFAULT_TTS = {
   voice: 'zh-CN-XiaoxiaoNeural',
@@ -64,16 +66,20 @@ function snapshot(): SettingsDraft {
 const draft = reactive<SettingsDraft>(snapshot())
 
 const showKey = ref(false)
-const testing = ref(false)
-const connResult = ref<{ ok: boolean; message: string } | null>(null)
 const testText = ref('这是一段用于测试朗读效果的示例文本，可以听一听音色是否合适。')
+/** Confirm-guard for wiping the endpoint (spec story 17: 恢复默认 → 清除 + 确认). */
+const confirmResetProvider = ref(false)
+/** True while a custom action is composed but not yet added (surfaced by child). */
+const stagedAction = ref(false)
 
 /** Re-arm the draft whenever the panel opens. */
 function resetDraft() {
   Object.assign(draft, snapshot())
   showKey.value = false
-  testing.value = false
-  connResult.value = null
+  confirmResetProvider.value = false
+  // Drop any stale connection-test result from a previous open.
+  settings.endpointTestStatus = 'idle'
+  settings.endpointTestMessage = ''
 }
 
 watch(
@@ -114,23 +120,14 @@ const endpointError = computed(() => {
   }
 })
 
-// --- Connection test --------------------------------------------------------
-async function testConnection() {
-  connResult.value = null
-  if (!draft.endpoint.trim()) {
-    connResult.value = { ok: false, message: '请先填写端点 Base URL。' }
-    return
-  }
-  testing.value = true
-  try {
-    connResult.value = await testEndpoint({
-      baseUrl: draft.endpoint.trim(),
-      apiKey: draft.apiKey,
-      model: draft.model.trim(),
-    })
-  } finally {
-    testing.value = false
-  }
+// --- Connection test (delegates to the store's state machine) ---------------
+// Tests the in-progress DRAFT (explicit-save model), not the saved values.
+function testConnection() {
+  void settings.runEndpointTest({
+    endpoint: draft.endpoint,
+    apiKey: draft.apiKey,
+    model: draft.model,
+  })
 }
 
 // --- TTS sliders ------------------------------------------------------------
@@ -166,11 +163,18 @@ function testTts() {
 }
 
 // --- Section resets ---------------------------------------------------------
-function resetProvider() {
+function requestResetProvider() {
+  confirmResetProvider.value = true
+}
+function confirmResetProviderNow() {
   draft.endpoint = ''
   draft.apiKey = ''
   draft.model = ''
   draft.explanationStyle = 'default'
+  confirmResetProvider.value = false
+}
+function cancelResetProvider() {
+  confirmResetProvider.value = false
 }
 function resetTts() {
   Object.assign(draft, { ...DEFAULT_TTS })
@@ -281,9 +285,19 @@ const suggestedVoices = SUGGESTED_VOICES
         <section class="settings-group">
           <div class="group-head">
             <h3 class="group-title">服务端点</h3>
-            <button class="link-button" type="button" @click="resetProvider">
-              恢复默认
+            <button
+              v-if="!confirmResetProvider"
+              class="link-button danger"
+              type="button"
+              @click="requestResetProvider"
+            >
+              清除
             </button>
+            <template v-else>
+              <span class="group-confirm-text">清除端点设置？</span>
+              <button class="link-button danger" type="button" @click="confirmResetProviderNow">清除</button>
+              <button class="link-button" type="button" @click="cancelResetProvider">取消</button>
+            </template>
           </div>
           <p class="group-note">
             你的密钥仅保存在本机浏览器（localStorage），由你直连 LLM，不上传到任何自有服务器。
@@ -349,19 +363,19 @@ const suggestedVoices = SUGGESTED_VOICES
             <button
               class="btn-secondary"
               type="button"
-              :disabled="testing"
+              :disabled="endpointTestStatus === 'loading'"
               @click="testConnection"
             >
-              {{ testing ? '测试中…' : '测试连接' }}
+              {{ endpointTestStatus === 'loading' ? '测试中…' : '测试连接' }}
             </button>
             <span
-              v-if="connResult"
+              v-if="endpointTestStatus !== 'idle'"
               class="test-result"
-              :class="connResult.ok ? 'ok' : 'fail'"
+              :class="endpointTestStatus === 'ok' ? 'ok' : 'fail'"
             >
-              <svg v-if="connResult.ok" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              <svg v-if="endpointTestStatus === 'ok'" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
               <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
-              {{ connResult.message }}
+              {{ endpointTestMessage }}
             </span>
           </div>
         </section>
@@ -447,6 +461,26 @@ const suggestedVoices = SUGGESTED_VOICES
           </div>
         </section>
 
+        <!-- External requests disclosure (ADR-0013) -->
+        <section class="settings-group">
+          <div class="group-head">
+            <h3 class="group-title">外部请求</h3>
+            <button
+              class="toggle"
+              type="button"
+              role="switch"
+              :aria-checked="externalRequestsEnabled"
+              :class="{ on: externalRequestsEnabled }"
+              @click="settings.setExternalRequestsEnabled(!externalRequestsEnabled)"
+            >
+              <span class="toggle-knob" />
+            </button>
+          </div>
+          <p class="group-note">
+            本应用不持有你的文档，但为使「朗读」与「音标」可用，选中内容的片段会发往对应第三方接口（TTS 代理、外部词典）。关闭后将禁用这两项功能，选中文字时仅保留复制等操作。
+          </p>
+        </section>
+
         <!-- Custom Actions -->
         <section class="settings-group">
           <div class="group-head">
@@ -455,20 +489,27 @@ const suggestedVoices = SUGGESTED_VOICES
           <p class="group-note">
             自建快捷操作，保存在本机，跨刷新保留。模板可用变量占位符，运行时替换为对应内容。
           </p>
-          <CustomActionsSettings v-model:actions="draft.customActions" />
+          <CustomActionsSettings
+            v-model:actions="draft.customActions"
+            v-model:staged="stagedAction"
+          />
         </section>
       </div>
 
       <footer class="settings-footer">
-        <span class="dirty-hint" :class="{ show: isDirty }">
-          {{ isDirty ? '有未保存的更改' : '已全部保存' }}
+        <span
+          class="dirty-hint"
+          :class="{ show: isDirty && !stagedAction }"
+        >
+          <template v-if="stagedAction">请先「添加动作」或清空草稿</template>
+          <template v-else>{{ isDirty ? '有未保存的更改' : '已全部保存' }}</template>
         </span>
         <div class="footer-actions">
           <button class="btn-secondary" type="button" @click="close">取消</button>
           <button
             class="btn-primary"
             type="button"
-            :disabled="!isDirty"
+            :disabled="!isDirty || stagedAction"
             @click="save"
           >
             保存

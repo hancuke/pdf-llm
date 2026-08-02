@@ -70,7 +70,7 @@ const emit = defineEmits<{ (e: 'update:modelValue', value: T): void }>()
 .segment.active {
   background: var(--surface);
   color: var(--text);
-  box-shadow: 0 1px 3px var(--shadow);
+  box-shadow: 0 1px 3px var(--shadow-color);
 }
 /* Visually hide the radio but keep it focusable for keyboard users. */
 .segment-input {

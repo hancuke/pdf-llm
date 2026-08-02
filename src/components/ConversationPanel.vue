@@ -11,7 +11,8 @@ const conversation = useConversationStore()
 const settings = useSettingsStore()
 const ui = useUiStore()
 
-const { active, messages, loading, error } = storeToRefs(conversation)
+const { active, messages, displayMessages, loading, error, clearRequested } =
+  storeToRefs(conversation)
 
 const draft = ref('')
 
@@ -22,9 +23,15 @@ function send() {
   void conversation.followUp(text)
 }
 
-function clearConversation() {
-  conversation.clear()
+function requestClearConversation() {
+  conversation.requestClear()
+}
+function confirmClearConversation() {
+  conversation.confirmClear()
   draft.value = ''
+}
+function cancelClearConversation() {
+  conversation.cancelClear()
 }
 
 function exportConversation() {
@@ -46,13 +53,26 @@ function exportConversation() {
           导出
         </button>
         <button
-          v-if="active"
-          class="link-button"
+          v-if="active && !clearRequested"
+          class="link-button danger"
           type="button"
-          @click="clearConversation"
+          @click="requestClearConversation"
         >
           清空
         </button>
+        <template v-if="active && clearRequested">
+          <span class="conv-confirm-text">确认清空？</span>
+          <button
+            class="link-button danger"
+            type="button"
+            @click="confirmClearConversation"
+          >
+            清空
+          </button>
+          <button class="link-button" type="button" @click="cancelClearConversation">
+            取消
+          </button>
+        </template>
       </div>
     </header>
 
@@ -69,9 +89,13 @@ function exportConversation() {
     <template v-else>
       <div v-if="error" class="conv-error">{{ error }}</div>
 
+      <div v-if="messages.length === 0 && !loading" class="conv-idle">
+        <p>对话已开始。继续选中文字并选择操作，或直接在下方追问。</p>
+      </div>
+
       <div class="conv-messages">
         <div
-          v-for="(m, i) in messages"
+          v-for="(m, i) in displayMessages"
           :key="i"
           :class="['msg', m.role]"
         >
@@ -83,7 +107,12 @@ function exportConversation() {
           ></div>
           <div v-else class="msg-content msg-raw">{{ m.content }}</div>
         </div>
-        <div v-if="loading" class="conv-loading">生成中…</div>
+        <div v-if="loading" class="conv-loading-row">
+          <span class="conv-loading">生成中…</span>
+          <button class="link-button" type="button" @click="conversation.stop()">
+            停止
+          </button>
+        </div>
       </div>
 
       <form class="conv-composer" @submit.prevent="send">
@@ -95,7 +124,15 @@ function exportConversation() {
           :disabled="loading"
           @keydown.enter.exact.prevent="send"
         ></textarea>
-        <button class="send-button" type="submit" :disabled="loading || !draft.trim()">
+        <button
+          v-if="loading"
+          class="send-button"
+          type="button"
+          @click="conversation.stop()"
+        >
+          停止
+        </button>
+        <button v-else class="send-button" type="submit" :disabled="!draft.trim()">
           发送
         </button>
       </form>

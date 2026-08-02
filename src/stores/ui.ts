@@ -35,13 +35,34 @@ function detectInitialTheme(): Theme {
   return 'light'
 }
 
+/**
+ * First-time mobile readers should land on the document, not a conversation
+ * drawer covering it (spec story 6). On desktop the default is the expanded
+ * conversation (reading mode off). An explicit stored choice always wins.
+ */
+function detectInitialConversationOpen(): boolean {
+  // An explicit stored choice always wins (use the documented storage wrapper).
+  const stored = loadBoolean(STORAGE_KEYS.conversationOpen, false)
+  // Distinguish "explicitly stored" from "defaulted": only trust the stored
+  // value when a key actually exists.
+  const hasStored =
+    typeof localStorage !== 'undefined' &&
+    localStorage.getItem(STORAGE_KEYS.conversationOpen) !== null
+  if (hasStored) return stored
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    const mobile = window.matchMedia('(max-width: 768px)').matches
+    return !mobile
+  }
+  return true
+}
+
 export const useUiStore = defineStore('ui', {
   state: () => ({
     settingsOpen: false,
     /** Left 目录/书签 panel visible. */
     outlineOpen: loadBoolean(STORAGE_KEYS.outlineOpen, false),
     /** Right 对话 panel visible. */
-    conversationOpen: loadBoolean(STORAGE_KEYS.conversationOpen, true),
+    conversationOpen: detectInitialConversationOpen(),
     theme: detectInitialTheme(),
     /** Command palette (⌘K) visibility. */
     commandPaletteOpen: false,
@@ -51,6 +72,8 @@ export const useUiStore = defineStore('ui', {
     currentZoom: 1,
     /** Current 1-based page number, kept in sync from the viewer. */
     currentPage: 1,
+    /** Transient toast message (e.g. "仅支持 PDF 文件"), or null. */
+    toast: null as string | null,
   }),
 
   actions: {
@@ -61,16 +84,51 @@ export const useUiStore = defineStore('ui', {
       this.settingsOpen = false
     },
 
+    // --- Panels open independently (ADR-0012 / CONTEXT.md: 面板独立开合) -----
+    // Opening one must NOT close the other. Every close path — the toolbar
+    // button, the mobile scrim, and the tab bar — funnels through the same
+    // `closeOutline` / `closeConversation` action, so button-close and
+    // scrim-close persist identically and a refresh never surprises the user.
+
     toggleOutline() {
-      // Bottom drawers are mutually exclusive so two sheets never stack.
-      if (!this.outlineOpen) this.conversationOpen = false
       this.outlineOpen = !this.outlineOpen
       saveBoolean(STORAGE_KEYS.outlineOpen, this.outlineOpen)
     },
     toggleConversation() {
-      if (!this.conversationOpen) this.outlineOpen = false
       this.conversationOpen = !this.conversationOpen
       saveBoolean(STORAGE_KEYS.conversationOpen, this.conversationOpen)
+    },
+
+    openOutline() {
+      this.outlineOpen = true
+      saveBoolean(STORAGE_KEYS.outlineOpen, true)
+    },
+    openConversation() {
+      this.conversationOpen = true
+      saveBoolean(STORAGE_KEYS.conversationOpen, true)
+    },
+    closeOutline() {
+      this.outlineOpen = false
+      saveBoolean(STORAGE_KEYS.outlineOpen, false)
+    },
+    closeConversation() {
+      this.conversationOpen = false
+      saveBoolean(STORAGE_KEYS.conversationOpen, false)
+    },
+
+    /** Show a transient toast; auto-dismisses after `ms` (default 2.4s). */
+    showToast(message: string, ms = 2400): void {
+      this.toast = message
+      if (typeof window !== 'undefined') {
+        window.clearTimeout((this as unknown as { _toastTimer?: number })._toastTimer)
+        ;(this as unknown as { _toastTimer?: number })._toastTimer = window.setTimeout(
+          () => this.clearToast(),
+          ms,
+        )
+      }
+    },
+    clearToast(): void {
+      this.toast = null
     },
 
     setTheme(theme: Theme) {

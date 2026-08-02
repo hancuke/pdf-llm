@@ -5,7 +5,7 @@
 // ({{context}} / {{selection}} / {{title}} / {{block}}) the rest of the app
 // supports but the old UI never exposed.
 
-import { ref, nextTick } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import type { Action } from '../lib/actions'
 import { createId } from '../lib/storage'
 
@@ -23,6 +23,20 @@ const editingId = ref<string | null>(null)
 const draftLabel = ref('')
 const draftTemplate = ref('')
 const confirmId = ref<string | null>(null)
+
+/**
+ * True while the inline add/edit form has unsaved content. Surfaced to the
+ * parent so the outer 保存 can be disabled — preventing a silent loss of a
+ * custom action the user composed but forgot to "添加动作" (spec story 16).
+ */
+const staged = defineModel<boolean>('staged', { default: false })
+watch(
+  [draftLabel, draftTemplate],
+  () => {
+    staged.value = draftLabel.value.trim().length > 0 || draftTemplate.value.length > 0
+  },
+  { immediate: true },
+)
 const labelInput = ref<HTMLInputElement | null>(null)
 const templateInput = ref<HTMLTextAreaElement | null>(null)
 

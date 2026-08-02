@@ -23,9 +23,9 @@ const fileInput = ref<HTMLInputElement | null>(null)
 function onDrop(event: DragEvent) {
   dragOver.value = false
   const file = event.dataTransfer?.files?.[0]
-  if (file && file.type === 'application/pdf') {
-    void reader.loadFile(file)
-  }
+  // Let the reader reject non-PDF files with a toast (spec story 4) rather than
+  // silently ignoring the drop.
+  if (file) void reader.loadFile(file)
 }
 
 function openFileDialog() {
@@ -99,7 +99,7 @@ onBeforeUnmount(() => {
     <div
       v-if="ui.outlineOpen || ui.conversationOpen"
       class="pane-scrim"
-      @click="ui.outlineOpen = false; ui.conversationOpen = false"
+      @click="ui.closeOutline(); ui.closeConversation()"
     />
 
     <SearchBar v-if="ui.searchOpen" />
@@ -123,5 +123,11 @@ onBeforeUnmount(() => {
     />
 
     <div v-if="dragOver" class="drop-hint">松开以打开 PDF</div>
+
+    <transition name="toast">
+      <div v-if="ui.toast" class="app-toast" role="status" @click="ui.clearToast()">
+        {{ ui.toast }}
+      </div>
+    </transition>
   </div>
 </template>

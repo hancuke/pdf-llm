@@ -20,6 +20,7 @@ export const STORAGE_KEYS = {
   theme: `${PREFIX}theme`,
   bookmarks: `${PREFIX}bookmarks`,
   lastPositions: `${PREFIX}lastPositions`,
+  externalRequests: `${PREFIX}externalRequests`,
 } as const
 
 function hasLocalStorage(): boolean {
