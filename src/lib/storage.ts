@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
   apiKey: `${PREFIX}apiKey`,
   model: `${PREFIX}model`,
   customActions: `${PREFIX}customActions`,
+  presetOverrides: `${PREFIX}presetOverrides`,
   explanationStyle: `${PREFIX}explanationStyle`,
   ttsVoice: `${PREFIX}ttsVoice`,
   ttsRate: `${PREFIX}ttsRate`,

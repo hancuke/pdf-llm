@@ -16,6 +16,11 @@ import {
   expand,
   close,
 } from '../lib/tts'
+import { usePdfPaneAnchor } from '../lib/usePdfPaneAnchor'
+
+// Anchor to the top-center of the PDF area so the bar never covers the
+// right-hand conversation panel.
+const { top, left } = usePdfPaneAnchor()
 
 /** Disable transport until we know the track length. */
 const canControl = computed(() => duration.value > 0)
@@ -55,7 +60,12 @@ const progressPct = computed(() =>
 </script>
 
 <template>
-  <div class="ra-mini" role="dialog" aria-label="朗读迷你播放器">
+  <div
+    class="ra-mini"
+    role="dialog"
+    aria-label="朗读迷你播放器"
+    :style="{ top: `${top}px`, left: `${left}px` }"
+  >
     <div ref="progressRef" class="ra-mini-progress" @click="onSeek">
       <div class="ra-mini-fill" :style="{ width: `${progressPct}%` }" />
     </div>
@@ -103,8 +113,7 @@ const progressPct = computed(() =>
 <style scoped>
 .ra-mini {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
+  transform: translateX(-50%);
   z-index: 215;
   display: flex;
   align-items: center;
@@ -194,14 +203,10 @@ const progressPct = computed(() =>
   border-color: transparent;
 }
 
-/* Mobile: full-width thin bar above the bottom Tab 栏 (story 14). */
+/* Mobile: keep the pill at the top-center of the PDF area (position is driven
+   by the inline style from usePdfPaneAnchor, so only sizing is overridden). */
 @media (max-width: 768px) {
   .ra-mini {
-    left: 0;
-    right: 0;
-    bottom: calc(52px + env(safe-area-inset-bottom));
-    border-radius: 0;
-    max-width: none;
     padding: 8px 12px;
   }
   .ra-mini-progress {

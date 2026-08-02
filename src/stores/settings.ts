@@ -10,6 +10,16 @@
 import { defineStore } from 'pinia'
 import { PRESET_ACTIONS, type Action } from '../lib/actions'
 import type { ExplanationStyle, TtsConfig } from '../lib/types'
+
+/** A user override applied to a built-in (preset) action (settings.ts). */
+export interface PresetOverride {
+  /** When set, replaces the preset's label. */
+  label?: string
+  /** When set, replaces the preset's template. */
+  template?: string
+  /** When true, the preset is removed from the action sheet. */
+  hidden?: boolean
+}
 import {
   STORAGE_KEYS,
   loadString,
@@ -46,6 +56,16 @@ export const useSettingsStore = defineStore('settings', {
     apiKey: loadString(STORAGE_KEYS.apiKey),
     model: loadString(STORAGE_KEYS.model),
     customActions: loadJson<Action[]>(STORAGE_KEYS.customActions, []),
+    /**
+     * Per-preset edits / deletions (CONTEXT.md: "自定义动作"). Built-in actions
+     * are immutable in code, so any user change to one is recorded here keyed by
+     * its id: `label`/`template` override the shipped prompt, and `hidden: true`
+     * removes it from the action sheet. Custom actions are NOT tracked here.
+     */
+    presetOverrides: loadJson<Record<string, PresetOverride>>(
+      STORAGE_KEYS.presetOverrides,
+      {},
+    ),
     explanationStyle: readExplanationStyle(),
     ttsVoice: loadString(STORAGE_KEYS.ttsVoice) || DEFAULT_TTS.voice,
     ttsRate: loadString(STORAGE_KEYS.ttsRate) || DEFAULT_TTS.rate,
@@ -82,11 +102,24 @@ export const useSettingsStore = defineStore('settings', {
       state.apiKey.trim().length > 0 &&
       state.model.trim().length > 0,
 
-    /** Preset Quick Actions followed by the user's Custom Actions. */
-    allActions: (state): Action[] => [...PRESET_ACTIONS, ...state.customActions],
+    /** Preset Quick Actions (with any user overrides) followed by Custom Actions. */
+    allActions: (state): Action[] => {
+      const visible = PRESET_ACTIONS.filter(
+        (p) => !state.presetOverrides[p.id]?.hidden,
+      ).map((p) => {
+        const o = state.presetOverrides[p.id]
+        return o
+          ? { ...p, label: o.label ?? p.label, template: o.template ?? p.template }
+          : p
+      })
+      return [...visible, ...state.customActions]
+    },
 
     customActionById: (state) => (id: string) =>
       state.customActions.find((a) => a.id === id),
+
+    /** True once the user has edited or hidden any built-in preset action. */
+    hasPresetOverrides: (state) => Object.keys(state.presetOverrides).length > 0,
   },
 
   actions: {
@@ -192,6 +225,40 @@ export const useSettingsStore = defineStore('settings', {
     removeCustomAction(id: string) {
       this.customActions = this.customActions.filter((a) => a.id !== id)
       this.persistCustomActions()
+    },
+
+    /** Persist an override (edit or hide) for a built-in preset action. */
+    persistPresetOverride() {
+      saveJson(STORAGE_KEYS.presetOverrides, this.presetOverrides)
+    },
+
+    /** Override the label / template of a built-in preset action. */
+    updatePreset(
+      id: string,
+      patch: Partial<Pick<Action, 'label' | 'template'>>,
+    ) {
+      if (!PRESET_ACTIONS.some((p) => p.id === id)) return
+      this.presetOverrides[id] = {
+        ...this.presetOverrides[id],
+        ...patch,
+      }
+      this.persistPresetOverride()
+    },
+
+    /** Hide (delete) a built-in preset action from the action sheet. */
+    hidePreset(id: string) {
+      if (!PRESET_ACTIONS.some((p) => p.id === id)) return
+      this.presetOverrides[id] = {
+        ...this.presetOverrides[id],
+        hidden: true,
+      }
+      this.persistPresetOverride()
+    },
+
+    /** Discard all preset overrides, restoring every built-in action to default. */
+    resetPresetOverrides() {
+      this.presetOverrides = {}
+      saveJson(STORAGE_KEYS.presetOverrides, this.presetOverrides)
     },
 
     persistCustomActions() {

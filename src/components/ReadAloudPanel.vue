@@ -27,11 +27,16 @@ import {
 } from '../lib/tts'
 import { segmentWords } from '../lib/segment'
 import { fetchPhonetics } from '../lib/phonetics'
+import { usePdfPaneAnchor } from '../lib/usePdfPaneAnchor'
 
 const settings = useSettingsStore()
 const reader = useReaderStore()
 const ui = useUiStore()
 const vocab = useVocabStore()
+
+// Anchor to the top-center of the PDF area so the panel never covers the
+// right-hand conversation panel.
+const { top, left, paneWidth } = usePdfPaneAnchor()
 
 /**
  * Read-aloud + phonetics send the selected word/text to third-party endpoints
@@ -107,8 +112,8 @@ async function onWordClick(word: string, event: MouseEvent) {
   const target = event.currentTarget as HTMLElement
   const rect = target.getBoundingClientRect()
 
-  // The read-aloud panel is anchored at the bottom, so words sit low on
-  // screen. A popover that always opens *below* the word would run off-screen
+  // The read-aloud panel floats at the top of the PDF area, so words sit high
+  // on screen. A popover that always opens *below* the word would run off-screen
   // (and could be clipped). Open above the word when there isn't room below.
   const estHeight = 140
   const openAbove = window.innerHeight - rect.bottom < estHeight + 8
@@ -236,7 +241,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="isOpen" class="read-aloud-panel" role="dialog" aria-label="朗读面板">
+  <div
+    v-if="isOpen"
+    class="read-aloud-panel"
+    role="dialog"
+    aria-label="朗读面板"
+    :style="{ top: `${top}px`, left: `${left}px`, maxWidth: `${paneWidth - 24}px` }"
+  >
     <header class="ra-header">
       <span class="ra-title">朗读</span>
       <button
@@ -348,16 +359,17 @@ onBeforeUnmount(() => {
 <style scoped>
 .read-aloud-panel {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  transform: translateX(-50%);
+  width: 680px;
+  max-width: 680px;
   z-index: 210;
   background: var(--surface, #fff);
   color: var(--text, #111);
-  border-top: 1px solid var(--border, #e5e7eb);
-  box-shadow: 0 -8px 24px var(--shadow-color, rgba(0, 0, 0, 0.12));
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px var(--shadow-color, rgba(0, 0, 0, 0.18));
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-  max-height: 60vh;
+  max-height: 70vh;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -525,11 +537,11 @@ onBeforeUnmount(() => {
   padding: 2px 0;
 }
 
-/* On mobile, sit above the bottom Tab bar instead of covering it (story 14). */
+/* On mobile the PDF area is full-width, so the floating card stays at the
+   top-center (positioned via the inline style). Just cap its height. */
 @media (max-width: 768px) {
   .read-aloud-panel {
-    bottom: calc(52px + env(safe-area-inset-bottom));
-    max-height: 52vh;
+    max-height: 60vh;
   }
 }
 </style>

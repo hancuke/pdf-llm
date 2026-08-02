@@ -24,6 +24,7 @@ const editingId = ref<string | null>(null)
 const draftLabel = ref('')
 const draftTemplate = ref('')
 const confirmId = ref<string | null>(null)
+const restoreConfirm = ref(false)
 
 const labelInput = ref<HTMLInputElement | null>(null)
 const templateInput = ref<HTMLTextAreaElement | null>(null)
@@ -52,10 +53,15 @@ function save() {
   const label = draftLabel.value.trim()
   if (!label) return
   if (editingId.value) {
-    settings.updateCustomAction(editingId.value, {
-      label,
-      template: draftTemplate.value,
-    })
+    const target = settings.allActions.find((a) => a.id === editingId.value)
+    if (target?.builtin) {
+      settings.updatePreset(editingId.value, { label, template: draftTemplate.value })
+    } else {
+      settings.updateCustomAction(editingId.value, {
+        label,
+        template: draftTemplate.value,
+      })
+    }
   } else {
     settings.addCustomAction(label, draftTemplate.value)
   }
@@ -68,14 +74,33 @@ function askRemove(id: string) {
 
 function confirmRemove() {
   if (confirmId.value) {
+    const target = settings.allActions.find((a) => a.id === confirmId.value)
     if (editingId.value === confirmId.value) resetForm()
-    settings.removeCustomAction(confirmId.value)
+    if (target?.builtin) {
+      settings.hidePreset(confirmId.value)
+    } else {
+      settings.removeCustomAction(confirmId.value)
+    }
   }
   confirmId.value = null
 }
 
 function cancelRemove() {
   confirmId.value = null
+}
+
+function askRestore() {
+  restoreConfirm.value = true
+}
+
+function confirmRestore() {
+  if (editingId.value) resetForm()
+  settings.resetPresetOverrides()
+  restoreConfirm.value = false
+}
+
+function cancelRestore() {
+  restoreConfirm.value = false
 }
 
 /** Insert `{{token}}` at the caret position of the template textarea. */
@@ -100,19 +125,24 @@ function insertVar(token: string) {
 
 <template>
   <div class="custom-actions">
-    <ul v-if="settings.customActions.length" class="custom-list">
+    <ul v-if="settings.allActions.length" class="custom-list">
       <li
-        v-for="action in settings.customActions"
+        v-for="action in settings.allActions"
         :key="action.id"
         class="custom-item"
         :class="{ editing: action.id === editingId }"
       >
         <div class="custom-info">
-          <span class="custom-label">{{ action.label }}</span>
+          <span class="custom-label">
+            {{ action.label }}
+            <span v-if="action.builtin" class="custom-badge">内置</span>
+          </span>
           <code class="custom-template">{{ action.template }}</code>
         </div>
         <div v-if="confirmId === action.id" class="custom-confirm">
-          <span class="custom-confirm-text">确认删除？</span>
+          <span class="custom-confirm-text">
+            {{ action.builtin ? '确认隐藏该内置动作？' : '确认删除？' }}
+          </span>
           <button class="link-button danger" type="button" @click="confirmRemove">
             删除
           </button>
@@ -139,7 +169,19 @@ function insertVar(token: string) {
       </li>
     </ul>
 
-    <p v-else class="custom-empty">还没有自定义动作，在下面添加一个吧。</p>
+    <p v-else class="custom-empty">还没有任何动作，在下面添加一个吧。</p>
+
+    <div v-if="settings.hasPresetOverrides" class="preset-restore">
+      <span class="preset-restore-text">已修改部分内置动作</span>
+      <template v-if="restoreConfirm">
+        <span class="custom-confirm-text">确认恢复默认？</span>
+        <button class="link-button" type="button" @click="confirmRestore">恢复</button>
+        <button class="link-button" type="button" @click="cancelRestore">取消</button>
+      </template>
+      <button v-else class="link-button" type="button" @click="askRestore">
+        恢复内置动作
+      </button>
+    </div>
 
     <div class="custom-form">
       <input
@@ -190,7 +232,7 @@ function insertVar(token: string) {
     </div>
 
     <button
-      v-if="!editingId && settings.customActions.length"
+      v-if="!editingId && settings.allActions.length"
       class="link-button add-another"
       type="button"
       @click="startAdd"
@@ -233,6 +275,19 @@ function insertVar(token: string) {
   font-weight: 500;
   color: var(--text);
 }
+.custom-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  vertical-align: middle;
+}
 .custom-template {
   display: block;
   font-size: 11px;
@@ -260,6 +315,20 @@ function insertVar(token: string) {
 }
 .custom-empty {
   margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.preset-restore {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.preset-restore-text {
   font-size: 13px;
   color: var(--text-muted);
 }

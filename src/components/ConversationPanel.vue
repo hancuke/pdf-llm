@@ -23,6 +23,19 @@ function send() {
   void conversation.followUp(text)
 }
 
+function onEnter(e: KeyboardEvent) {
+  // While an IME candidate window is open (Chinese/Japanese/Korean input),
+  // Enter confirms the candidate — it must NOT send. Otherwise the message
+  // fires mid-composition with stale text and the committed characters are
+  // left orphaned in the box.
+  if (e.isComposing || e.keyCode === 229) return
+  // Plain Enter sends. Shift/Ctrl/Meta fall through to the browser default so
+  // Shift+Enter still inserts a newline.
+  if (e.shiftKey || e.ctrlKey || e.metaKey) return
+  e.preventDefault()
+  send()
+}
+
 function requestClearConversation() {
   conversation.requestClear()
 }
@@ -122,7 +135,7 @@ function exportConversation() {
           rows="2"
           placeholder="继续追问…（回车发送，Shift+Enter 换行）"
           :disabled="loading"
-          @keydown.enter.exact.prevent="send"
+          @keydown.enter="onEnter"
         ></textarea>
         <button
           v-if="loading"

@@ -78,13 +78,6 @@ export const PRESET_ACTIONS: Action[] = [
     builtin: true,
   },
   {
-    id: 'why',
-    label: '为什么重要',
-    template:
-      '说明下面的选中内容为什么重要、通常在什么场景下使用或起作用。\n\n{{block}}',
-    builtin: true,
-  },
-  {
     id: 'summarize',
     label: '总结',
     template: '请总结下面的选中内容，保留关键信息与要点。\n\n{{block}}',
