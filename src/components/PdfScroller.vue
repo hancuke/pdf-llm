@@ -82,7 +82,11 @@ watch(elementRef, (el) => {
             props.documentId,
           ),
         onPinchEnd: () =>
-          selection.value?.enableForMode('panMode', SELECTION_MODE, props.documentId),
+          selection.value?.enableForMode(
+            'panMode',
+            { ...SELECTION_MODE, enableSelection: ui.selectMode },
+            props.documentId,
+          ),
       })
     : null
 })

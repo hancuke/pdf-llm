@@ -178,11 +178,12 @@ watch(
     // the document loads (with marquee + rect display); re-declaring it here
     // would replace that config wholesale. What we do need is to keep it alive
     // in `panMode`, which is the default mode on touch devices — the selection
-    // handler is pointer-driven and mode-gated only by this flag, so enabling
-    // it lets the long-press arbiter in PdfScroller drive a real selection.
+    // handler is pointer-driven and mode-gated only by this flag. Selection is
+    // ONLY allowed in 划词模式 (toolbar toggle): in reading/pan mode it stays
+    // OFF so no drag, long-press or native path can ever start a selection.
     selection.value?.enableForMode(
       'panMode',
-      { enableSelection: true, showSelectionRects: true, enableMarquee: false },
+      { enableSelection: ui.selectMode, showSelectionRects: true, enableMarquee: false },
       id,
     )
     // `pointerMode` (the built-in default) does not declare `wantsRawTouch`,
@@ -203,6 +204,22 @@ watch(
     await reader.loadOutline()
   },
   { immediate: true },
+)
+
+// Reading/pan mode must NEVER start a selection; only 划词模式 (ui.selectMode)
+// enables EmbedPDF text selection. Flip the panMode selection flag live with the
+// toolbar switch (ADR-0018): dragging/long-press/native paths can't select while
+// it's off, and toggling on re-enables drag-select in 划词模式.
+watch(
+  () => ui.selectMode,
+  (on) => {
+    if (!props.activeDocumentId) return
+    selection.value?.enableForMode(
+      'panMode',
+      { enableSelection: on, showSelectionRects: true, enableMarquee: false },
+      props.activeDocumentId,
+    )
+  },
 )
 
 // --- Selection bridge -------------------------------------------------------
