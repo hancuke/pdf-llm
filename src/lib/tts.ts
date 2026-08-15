@@ -144,6 +144,14 @@ async function requestBlob(
 // --- Public API -------------------------------------------------------------
 
 /**
+ * Flatten `text` for speech: drop line breaks (so multi-line selections read
+ * as one continuous sentence) and collapse the resulting runs of whitespace.
+ */
+function cleanForSpeech(text: string): string {
+  return text.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/**
  * Read `text` aloud via Edge TTS, opening the read-aloud panel. Any currently
  * playing/synthesizing speech is stopped first. Rejects (and sets `ttsError`)
  * if the request or playback fails (e.g. network blocked, invalid endpoint).
@@ -153,7 +161,7 @@ export async function speak(
   cfg: TtsConfig,
   opts?: { expand?: boolean },
 ): Promise<void> {
-  const trimmed = text.trim()
+  const trimmed = cleanForSpeech(text)
   if (!trimmed) return
   stop()
   ttsError.value = null
