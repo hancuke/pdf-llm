@@ -55,7 +55,11 @@ function onPointerUp(e: PointerEvent): void {
   lastPointer.y = e.clientY
 }
 
-// Touch arbiter: swipe scrolls, long-press selects. See lib/longPressSelect.
+// Touch arbiter: long-press → select is OFF in BOTH modes (reading mode must
+// not select at all; 划词模式 selects by direct drag). The arbiter is kept only
+// for its pinch suppression (see lib/longPressSelect: with `enableLongPress:
+// false` the long-press timer + dblclick word-select are disabled, but two-finger
+// pinch detection still fires `onPinchStart`/`onPinchEnd`).
 let detachLongPress: (() => void) | null = null
 // During a pinch the first finger still moves, which would otherwise drive the
 // selection plugin's drag-select. Toggle `enableSelection` off for the pinch
@@ -66,14 +70,11 @@ const SELECTION_MODE = {
   showSelectionRects: true,
   enableMarquee: false,
 } as const
-// Re-attach whenever the page mounts (elementRef) or the 划词模式 toggle
-// (selectMode) flips: in 划词模式 the long-press arbiter is off (drag selects
-// directly under `touch-action: none`), but pinch suppression stays on.
-watch([elementRef, () => ui.selectMode], ([el]) => {
+watch(elementRef, (el) => {
   detachLongPress?.()
   detachLongPress = el
     ? attachLongPressSelect(el, {
-        enableLongPress: !ui.selectMode,
+        enableLongPress: false,
         onPinchStart: () =>
           selection.value?.enableForMode(
             'panMode',

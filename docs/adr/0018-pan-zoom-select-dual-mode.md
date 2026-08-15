@@ -37,22 +37,36 @@
 | 纵向滚动 | 原生 | 关闭（需退出模式） |
 | 捏合缩放 | `useZoomGesture` 独占 | `useZoomGesture` 独占 |
 | 选字触发 | 长按 500ms → 拖动 或 静止选词 | 单指拖动即选 |
-| 长按仲裁器 | 启用 | 关闭（仅留 pinch 抑制） |
+| 长按仲裁器 | 关闭（阅读模式零选字） | 关闭（仅留 pinch 抑制；单指拖动即选） |
+
+## 修正（真机回归后）
+
+初版用 `touch-action: pan-y`，在 iOS 上暴露两个问题，已修正：
+
+1. **缩放变灰 + 放大后不能平移**：`pan-y` 禁掉了浏览器原生捏合缩放（强制 EmbedPDF 的 JS 缩放
+   → 提交时整页重渲染、出现灰色闪），同时又禁掉了横向原生平移（放大超过页宽后无法左右移动）。
+   **修正**：阅读模式改用 `touch-action: manipulation`——保留浏览器原生捏合缩放（GPU 合成、平滑、
+   无灰色重渲染闪），并允许双轴平移（含放大后的横向平移）；仅禁双击缩放以免与选字打架。原生捏合
+   安全，因为 pinch 仲裁器在 second finger 落下的瞬间就把 EmbedPDF 选字关掉（不再有选字泄漏）。
+2. **选字模式需要 iOS 放大镜**：`user-select: none` 最初全局施加（含选字模式），把放大镜也禁了。
+   **修正**：`user-select: none` 仅作用于阅读模式（`@media (pointer: coarse)` 下的 `.zoom-transform`）；
+   选字模式 `.zoom-transform.select-mode` 改回 `user-select: text`，iOS 拖动选字时显示放大镜。
+3. **阅读模式不要选中文字**：按用户在真机上的决定，长按仲裁器在两种模式都关闭——阅读模式完全不
+   选字（原生 `user-select:none` + 仲裁器关），选字只通过工具栏「划词模式」开关进入（单指拖动即选）。
 
 ## 代价
 
-- `pan-y` 同时禁掉横向原生 pan（本应用滚动仅纵向，可接受）。
-- **未**全局加 `user-select: none`。核心问题（浏览器原生 pinch/双击缩放）已由 `pan-y` 根除；iOS
-  选字过程中的 loupe 主要由 `-webkit-touch-callout: none` 抑制。是否进一步加 `user-select: none`
-  （用户原提议 Mode A 默认关闭原生选字）待真机验证：EmbedPDF 选字基于字形 overlay，但需确认
-  `user-select: none` 不会破坏其 `getSelectedText` / 格式化选区；若验证通过再补，若破坏则维持现状。
-- 模式 B 下原生滚动关闭，用户需退出划词模式才能滚动手势——符合 Mode B 设计；以工具栏按钮
-  `active` 态 + `title` 提示。
+- 阅读模式 `user-select: none` + 长按仲裁器关闭 → 阅读模式零选字；选字只能进「划词模式」后拖动。
+- 选字模式 `touch-action: none` → 原生滚动让位，需退出选字模式才能滚动手势（符合 Mode B 设计）；
+  以工具栏按钮 `active` 态 + `title` 提示。
+- `manipulation` 保留浏览器原生捏合缩放：依赖 pinch 仲裁器的 `onPinchStart` 在双指时关掉 EmbedPDF
+  选字，否则第一指拖动会误触选字。
 - 真机多指/长按无法在无头桌面 Chrome 复现，`e2e/` 暂无触屏项目；手动验收见下。
 
 **手动验收清单（真机/触屏）**：
-① 双指捏合只缩放、不出现选区；② 长按 500ms 出选词、拖动可扩展；③ iOS 长按不再弹原生放大镜/callout；
-④ 工具栏「划词模式」开启后单指拖动即选字，再次点击退出恢复滚动。
+① 双指捏合平滑缩放（无灰色重渲染闪），且放大后可双指/单指左右上下平移；② 阅读模式任何交互都不出现选字；
+③ 工具栏「划词模式」开启后单指拖动即选字，且 iOS 显示放大镜；④ 双指捏合不出现选区（pinch 抑制生效）；
+⑤ 再次点击「划词模式」退出，恢复平滑缩放/平移。
 
 **参考**：根因与 EmbedPDF 内部机制见 `docs/troubleshooting/embedpdf-three-bugs.md` 与
 `docs/adr/0010-mobile-touch-scroll-and-long-press-select.md`。

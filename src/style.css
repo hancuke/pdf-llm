@@ -239,17 +239,37 @@ body {
    every page, so its `touch-action` caps the browser's native gestures for all
    touches (effective value is the most-restrictive across the ancestor chain,
    overriding EmbedPDF's per-page `touch-action: ''` stamp under panMode).
-   - Default (Mode A, 缩放/平移): `pan-y` keeps native VERTICAL scroll but
-     forbids the browser's native pinch-zoom / double-tap-zoom, so EmbedPDF's
-     `useZoomGesture` owns pinch without the browser fighting it (fixes the
-     pinch → accidental-selection bug and the browser magnifier/zoom bug).
+   - Default (Mode A, 缩放/平移): `manipulation` keeps the BROWSER's native
+     pinch-zoom (smooth, GPU-composited — no gray re-render flash) and two-axis
+     panning, while disabling double-tap zoom so it can't fight selection.
+     Native pinch-zoom is safe here because the pinch arbiter disables EmbedPDF's
+     selection the moment a 2nd finger lands (no selection leak).
    - 划词模式 (Mode B): `none` hands the surface to EmbedPDF so a single-finger
      drag selects text directly and native scroll yields. */
 .zoom-transform {
-  touch-action: pan-y;
+  touch-action: manipulation;
 }
 .zoom-transform.select-mode {
   touch-action: none;
+}
+/* Reading mode (pan) must NOT natively select text or show the iOS loupe/callout
+   — `touch-action` alone doesn't stop iOS Safari's long-press / drag from
+   highlighting words, so `user-select: none` is required. EmbedPDF renders its
+   own selection overlay (glyph hit-testing, not `window.getSelection`), so
+   disabling native selection is safe. Scoped to coarse pointers to leave desktop
+   mouse-drag selection untouched. */
+@media (pointer: coarse) {
+  .zoom-transform {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  /* 划词模式 (Mode B) re-enables native selection so iOS shows the
+     magnifier/loupe while the user drags to select. */
+  .zoom-transform.select-mode {
+    -webkit-user-select: text;
+    user-select: text;
+  }
 }
 
 .scanned-warning {
