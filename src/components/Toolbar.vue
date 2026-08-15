@@ -23,7 +23,7 @@ import {
 const ui = useUiStore()
 const reader = useReaderStore()
 const { numPages, hasDocument } = storeToRefs(reader)
-const { conversationOpen, outlineOpen, theme, currentPage, zoomLabel, zoomMode } =
+const { conversationOpen, outlineOpen, theme, currentPage, zoomLabel, zoomMode, selectMode } =
   storeToRefs(ui)
 
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -242,6 +242,17 @@ onBeforeUnmount(() =>
     </div>
 
     <div class="tb-zone tb-right">
+      <button
+        class="tb-icon"
+        type="button"
+        :class="{ active: selectMode }"
+        :aria-pressed="selectMode"
+        title="划词模式（开启后拖动选字）"
+        aria-label="划词模式"
+        @click="ui.toggleSelectMode()"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h10M4 17h7"/><path d="M15 10l5 5M20 10l-5 5"/></svg>
+      </button>
       <button
         class="tb-icon hide-under-768"
         type="button"

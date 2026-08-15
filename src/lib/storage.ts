@@ -23,6 +23,10 @@ export const STORAGE_KEYS = {
   lastPositions: `${PREFIX}lastPositions`,
   externalRequests: `${PREFIX}externalRequests`,
   vocabBook: `${PREFIX}vocabBook`,
+  webdavUrl: `${PREFIX}webdavUrl`,
+  webdavUsername: `${PREFIX}webdavUsername`,
+  webdavPassword: `${PREFIX}webdavPassword`,
+  webdavPath: `${PREFIX}webdavPath`,
 } as const
 
 function hasLocalStorage(): boolean {

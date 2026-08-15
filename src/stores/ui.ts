@@ -78,6 +78,12 @@ export const useUiStore = defineStore('ui', {
     zoomMode: null as ZoomFitMode | null,
     /** Current 1-based page number, kept in sync from the viewer. */
     currentPage: 1,
+    /**
+     * 划词模式（Mode B）开关：开启后页面表面切到 `touch-action: none`，
+     * 单指拖动直接交给 EmbedPDF 选字插件选字（不再需要长按仲裁），原生滚动
+     * 让位。瞬态、不持久化——刷新后回到默认缩放/平移模式（ADR-0018）。
+     */
+    selectMode: false,
     /** Transient toast message (e.g. "仅支持 PDF 文件"), or null. */
     toast: null as string | null,
   }),
@@ -199,6 +205,14 @@ export const useUiStore = defineStore('ui', {
 
     setCurrentPage(page: number) {
       this.currentPage = page
+    },
+
+    /** Toggle 划词模式（Mode B）：开启后单指拖动即选字，原生滚动让位。 */
+    toggleSelectMode() {
+      this.selectMode = !this.selectMode
+    },
+    setSelectMode(value: boolean) {
+      this.selectMode = value
     },
 
     /** Apply the persisted theme on app boot. */

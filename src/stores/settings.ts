@@ -31,6 +31,8 @@ import {
   createId,
 } from '../lib/storage'
 import { testEndpoint as probeEndpoint } from '../lib/llm'
+import { applySnapshot, buildSnapshot } from '../lib/snapshot'
+import { webdavDownload, webdavUpload, type WebDavConfig } from '../lib/webdav'
 
 /**
  * Read the persisted explanation style, validating it against the known union.
@@ -77,6 +79,15 @@ export const useSettingsStore = defineStore('settings', {
     /** Endpoint connectivity probe status (story 18). */
     endpointTestStatus: 'idle' as 'idle' | 'loading' | 'ok' | 'fail',
     endpointTestMessage: '',
+
+    // --- WebDAV sync config (ADR-0019) ---------------------------------------
+    webdavUrl: loadString(STORAGE_KEYS.webdavUrl),
+    webdavUsername: loadString(STORAGE_KEYS.webdavUsername),
+    webdavPassword: loadString(STORAGE_KEYS.webdavPassword),
+    webdavPath: loadString(STORAGE_KEYS.webdavPath) || 'pdf-llm-backup.json',
+    /** Manual WebDAV sync status: idle | loading | ok | fail. */
+    syncStatus: 'idle' as 'idle' | 'loading' | 'ok' | 'fail',
+    syncMessage: '',
   }),
 
   getters: {
@@ -263,6 +274,88 @@ export const useSettingsStore = defineStore('settings', {
 
     persistCustomActions() {
       saveJson(STORAGE_KEYS.customActions, this.customActions)
+    },
+
+    // --- WebDAV sync config (ADR-0019) ---------------------------------------
+    updateWebdavUrl(value: string) {
+      this.webdavUrl = value.trim()
+      saveString(STORAGE_KEYS.webdavUrl, this.webdavUrl)
+    },
+    updateWebdavUsername(value: string) {
+      this.webdavUsername = value
+      saveString(STORAGE_KEYS.webdavUsername, this.webdavUsername)
+    },
+    updateWebdavPassword(value: string) {
+      this.webdavPassword = value
+      saveString(STORAGE_KEYS.webdavPassword, this.webdavPassword)
+    },
+    updateWebdavPath(value: string) {
+      this.webdavPath = value.trim() || 'pdf-llm-backup.json'
+      saveString(STORAGE_KEYS.webdavPath, this.webdavPath)
+    },
+
+    /** Build the WebDAV config object from the current store values. */
+    webdavConfig(): WebDavConfig {
+      return {
+        url: this.webdavUrl,
+        username: this.webdavUsername,
+        password: this.webdavPassword,
+        path: this.webdavPath,
+      }
+    },
+
+    // --- Snapshot export / import --------------------------------------------
+    /** Serialize settings + bookmarks + vocab into a JSON string. */
+    exportSnapshot(): string {
+      return buildSnapshot()
+    },
+    /** Parse and apply a snapshot JSON string. Returns success / error. */
+    importSnapshot(json: string): { ok: boolean; error?: string } {
+      return applySnapshot(json)
+    },
+
+    /** Upload the current snapshot to WebDAV (manual backup). */
+    async uploadToWebdav(): Promise<void> {
+      if (!this.webdavUrl.trim() || !this.webdavPath.trim()) {
+        this.syncStatus = 'fail'
+        this.syncMessage = '请先填写 WebDAV 服务器地址与远端文件名。'
+        return
+      }
+      this.syncStatus = 'loading'
+      this.syncMessage = '正在备份…'
+      try {
+        await webdavUpload(this.webdavConfig(), this.exportSnapshot())
+        this.syncStatus = 'ok'
+        this.syncMessage = '已备份到 WebDAV。'
+      } catch (err) {
+        this.syncStatus = 'fail'
+        this.syncMessage = err instanceof Error ? err.message : '备份失败。'
+      }
+    },
+
+    /** Download and apply a snapshot from WebDAV (manual restore). */
+    async downloadFromWebdav(): Promise<void> {
+      if (!this.webdavUrl.trim() || !this.webdavPath.trim()) {
+        this.syncStatus = 'fail'
+        this.syncMessage = '请先填写 WebDAV 服务器地址与远端文件名。'
+        return
+      }
+      this.syncStatus = 'loading'
+      this.syncMessage = '正在恢复…'
+      try {
+        const json = await webdavDownload(this.webdavConfig())
+        const result = this.importSnapshot(json)
+        if (!result.ok) {
+          this.syncStatus = 'fail'
+          this.syncMessage = result.error ?? '恢复失败。'
+          return
+        }
+        this.syncStatus = 'ok'
+        this.syncMessage = '已从 WebDAV 恢复。'
+      } catch (err) {
+        this.syncStatus = 'fail'
+        this.syncMessage = err instanceof Error ? err.message : '恢复失败。'
+      }
     },
   },
 })

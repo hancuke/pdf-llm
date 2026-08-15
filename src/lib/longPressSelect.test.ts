@@ -111,4 +111,49 @@ describe('attachLongPressSelect', () => {
     expect(dbl).toBe(0)
     el.remove()
   })
+
+  describe('enableLongPress: false (划词模式 / Mode B)', () => {
+    // In 划词模式 the long-press arbiter is off: a single finger should NOT
+    // arm a hold or replay a dblclick (drag-select is driven by EmbedPDF
+    // directly under `touch-action: none`), but two-finger pinch detection
+    // must still fire onPinchStart / onPinchEnd.
+    function multiTouch(type: string, count: number): Event {
+      const e = new Event(type, { bubbles: false, cancelable: true })
+      ;(e as unknown as { touches: Array<{ clientX: number; clientY: number }> }).touches =
+        Array.from({ length: count }, (_, i) => ({ clientX: 10 + i * 10, clientY: 10 + i * 10 }))
+      return e
+    }
+
+    it('does NOT dispatch dblclick on a stationary single-finger touch', () => {
+      const el = document.createElement('div')
+      document.body.appendChild(el)
+      const detach = attachLongPressSelect(el, { enableLongPress: false })
+      let dbl = 0
+      el.addEventListener('dblclick', () => dbl++)
+      el.dispatchEvent(touch('touchstart', 10, 10))
+      vi.advanceTimersByTime(600)
+      expect(dbl).toBe(0)
+      detach()
+      el.remove()
+    })
+
+    it('still fires onPinchStart for a two-finger touch and onPinchEnd when it drops to one', () => {
+      const el = document.createElement('div')
+      document.body.appendChild(el)
+      let pinchStart = 0
+      let pinchEnd = 0
+      const detach = attachLongPressSelect(el, {
+        enableLongPress: false,
+        onPinchStart: () => pinchStart++,
+        onPinchEnd: () => pinchEnd++,
+      })
+      el.dispatchEvent(multiTouch('touchstart', 2))
+      expect(pinchStart).toBe(1)
+      expect(pinchEnd).toBe(0)
+      el.dispatchEvent(multiTouch('touchend', 1))
+      expect(pinchEnd).toBe(1)
+      detach()
+      el.remove()
+    })
+  })
 })

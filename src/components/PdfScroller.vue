@@ -17,6 +17,7 @@ import { RenderLayer } from '@embedpdf/plugin-render/vue'
 import { TilingLayer } from '@embedpdf/plugin-tiling/vue'
 import { SelectionLayer } from '@embedpdf/plugin-selection/vue'
 import { attachLongPressSelect } from '../lib/longPressSelect'
+import { useUiStore } from '../stores/ui'
 
 const props = defineProps<{ documentId: string }>()
 const emit = defineEmits<{
@@ -24,6 +25,7 @@ const emit = defineEmits<{
 }>()
 
 const { elementRef } = useZoomGesture(() => props.documentId)
+const ui = useUiStore()
 
 const { provides: selection } = useSelectionCapability()
 
@@ -64,10 +66,14 @@ const SELECTION_MODE = {
   showSelectionRects: true,
   enableMarquee: false,
 } as const
-watch(elementRef, (el) => {
+// Re-attach whenever the page mounts (elementRef) or the 划词模式 toggle
+// (selectMode) flips: in 划词模式 the long-press arbiter is off (drag selects
+// directly under `touch-action: none`), but pinch suppression stays on.
+watch([elementRef, () => ui.selectMode], ([el]) => {
   detachLongPress?.()
   detachLongPress = el
     ? attachLongPressSelect(el, {
+        enableLongPress: !ui.selectMode,
         onPinchStart: () =>
           selection.value?.enableForMode(
             'panMode',
@@ -87,7 +93,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="elementRef" class="zoom-transform" @pointerup="onPointerUp">
+  <div
+    ref="elementRef"
+    class="zoom-transform"
+    :class="{ 'select-mode': ui.selectMode }"
+    @pointerup="onPointerUp"
+  >
     <Scroller :document-id="documentId">
       <template #default="{ page }">
         <PagePointerProvider

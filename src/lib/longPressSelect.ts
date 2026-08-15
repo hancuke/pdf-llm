@@ -45,6 +45,14 @@ const MOVE_TOLERANCE_PX = 8
 export interface LongPressSelectOptions {
   holdMs?: number
   moveTolerancePx?: number
+  /**
+   * When false, the long-press → word-select arbiter is disabled: a single
+   * finger is left to the browser / EmbedPDF (drag selects directly) while
+   * two-finger pinch detection is kept. Used by 划词模式 (Mode B), where
+   * `touch-action: none` already suppresses native scroll so a drag should
+   * select without a hold. Defaults to true (the default 缩放/平移 mode).
+   */
+  enableLongPress?: boolean
   /** Called when the hold expires and the gesture becomes a selection. */
   onArm?: () => void
   /** Called when a second finger lands — i.e. the gesture becomes a pinch. */
@@ -67,6 +75,7 @@ export function attachLongPressSelect(
 ): () => void {
   const holdMs = options.holdMs ?? HOLD_MS
   const tolerance = options.moveTolerancePx ?? MOVE_TOLERANCE_PX
+  const longPressEnabled = options.enableLongPress ?? true
 
   let timer: ReturnType<typeof setTimeout> | null = null
   let start: { x: number; y: number; target: EventTarget | null } | null = null
@@ -120,6 +129,11 @@ export function attachLongPressSelect(
       }
       return
     }
+    // 划词模式 (Mode B) disables the long-press arbiter entirely: a single
+    // finger should drag-select directly (touch-action:none already stops the
+    // browser scrolling), so we don't arm a hold or replay a dblclick. Pinch
+    // detection above still runs.
+    if (!longPressEnabled) return
     if (event.touches.length !== 1) return
     const touch = event.touches[0]
     start = { x: touch.clientX, y: touch.clientY, target: event.target }

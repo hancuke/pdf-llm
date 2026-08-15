@@ -235,6 +235,23 @@ body {
   -webkit-touch-callout: none;
 }
 
+/* Dual-mode gesture decoupling (ADR-0018). `.zoom-transform` is the ancestor of
+   every page, so its `touch-action` caps the browser's native gestures for all
+   touches (effective value is the most-restrictive across the ancestor chain,
+   overriding EmbedPDF's per-page `touch-action: ''` stamp under panMode).
+   - Default (Mode A, 缩放/平移): `pan-y` keeps native VERTICAL scroll but
+     forbids the browser's native pinch-zoom / double-tap-zoom, so EmbedPDF's
+     `useZoomGesture` owns pinch without the browser fighting it (fixes the
+     pinch → accidental-selection bug and the browser magnifier/zoom bug).
+   - 划词模式 (Mode B): `none` hands the surface to EmbedPDF so a single-finger
+     drag selects text directly and native scroll yields. */
+.zoom-transform {
+  touch-action: pan-y;
+}
+.zoom-transform.select-mode {
+  touch-action: none;
+}
+
 .scanned-warning {
   display: flex;
   align-items: center;

@@ -31,8 +31,13 @@ import CustomActionsSettings from './CustomActionsSettings.vue'
 
 const settings = useSettingsStore()
 const ui = useUiStore()
-const { endpointTestStatus, endpointTestMessage, externalRequestsEnabled } =
-  storeToRefs(settings)
+const {
+  endpointTestStatus,
+  endpointTestMessage,
+  externalRequestsEnabled,
+  syncStatus,
+  syncMessage,
+} = storeToRefs(settings)
 
 const themeOptions: { value: Theme; label: string }[] = [
   { value: 'light', label: '浅色' },
@@ -44,13 +49,14 @@ const styleOptions = (
   Object.entries(EXPLANATION_STYLES) as [ExplanationStyle, { label: string }][]
 ).map(([value, cfg]) => ({ value, label: cfg.label }))
 
-// --- Categories (4, per ADR-0017) -----------------------------------------
-type CategoryId = 'general' | 'model' | 'readaloud' | 'actions'
+// --- Categories (5: ADR-0017 的 4 类 + 同步与备份, ADR-0019) ------------
+type CategoryId = 'general' | 'model' | 'readaloud' | 'actions' | 'sync'
 const categories: { id: CategoryId; label: string }[] = [
   { id: 'general', label: '通用' },
   { id: 'model', label: '模型服务' },
   { id: 'readaloud', label: '朗读' },
   { id: 'actions', label: '动作' },
+  { id: 'sync', label: '同步与备份' },
 ]
 const activeCategory = ref<CategoryId | null>('general')
 const activeCategoryLabel = computed(
@@ -154,6 +160,65 @@ function testTts() {
   // Open expanded so the user can verify the full panel (spec-ui-redesign story 12).
   void speak(testText.value, settings.ttsConfig, { expand: true })
 }
+
+// --- Sync & backup (ADR-0019) --------------------------------------------
+const webdavUrl = computed({
+  get: () => settings.webdavUrl,
+  set: (v: string) => settings.updateWebdavUrl(v.trim()),
+})
+const webdavUsername = computed({
+  get: () => settings.webdavUsername,
+  set: (v: string) => settings.updateWebdavUsername(v),
+})
+const webdavPassword = computed({
+  get: () => settings.webdavPassword,
+  set: (v: string) => settings.updateWebdavPassword(v),
+})
+const webdavPath = computed({
+  get: () => settings.webdavPath,
+  set: (v: string) => settings.updateWebdavPath(v.trim()),
+})
+
+/** Download the current snapshot as a local JSON file. */
+function exportJson() {
+  const json = settings.exportSnapshot()
+  const blob = new Blob([json], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const stamp = new Date().toISOString().slice(0, 10)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `pdf-llm-backup-${stamp}.json`
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
+}
+
+const importInput = ref<HTMLInputElement | null>(null)
+function triggerImport() {
+  importInput.value?.click()
+}
+function onImportFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    const text = String(reader.result ?? '')
+    const result = settings.importSnapshot(text)
+    if (result.ok) {
+      ui.showToast('已从 JSON 恢复设置。')
+    } else {
+      ui.showToast(result.error ?? '导入失败。')
+    }
+    // Reset so the same file can be re-selected.
+    input.value = ''
+  }
+  reader.onerror = () => ui.showToast('读取文件失败。')
+  reader.readAsText(file)
+}
+
+const syncBusy = computed(() => syncStatus.value === 'loading')
 
 // --- Section resets --------------------------------------------------------
 const confirmResetProvider = ref(false)
@@ -566,6 +631,111 @@ function onVoiceSelect(event: Event) {
                   自建快捷操作，保存在本机，跨刷新保留。模板可用变量占位符，运行时替换为对应内容。
                 </p>
                 <CustomActionsSettings />
+              </section>
+            </template>
+
+            <!-- 同步与备份: 本地 JSON + WebDAV (ADR-0019) -->
+            <template v-else-if="activeCategory === 'sync'">
+              <section class="settings-group">
+                <div class="group-head">
+                  <h3 class="group-title">本地备份</h3>
+                </div>
+                <p class="group-note">
+                  导出的 JSON 包含全部设置、书签与生词本，<strong>含 API 密钥与 WebDAV 密码</strong>，请妥善保管，勿分享他人。
+                </p>
+                <div class="test-row">
+                  <button class="btn-secondary" type="button" @click="exportJson">
+                    导出为 JSON
+                  </button>
+                  <button class="btn-secondary" type="button" @click="triggerImport">
+                    从 JSON 导入
+                  </button>
+                  <input
+                    ref="importInput"
+                    type="file"
+                    accept="application/json,.json"
+                    class="hidden"
+                    @change="onImportFile"
+                  />
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <div class="group-head">
+                  <h3 class="group-title">WebDAV 同步</h3>
+                </div>
+                <p class="group-note">
+                  将备份上传到你的 WebDAV 服务器，换设备时再「恢复」即可。需服务器开启 CORS（含 Authorization 预检）。
+                </p>
+
+                <label class="field">
+                  <span class="field-label">服务器地址</span>
+                  <input
+                    v-model="webdavUrl"
+                    class="field-input"
+                    type="text"
+                    placeholder="https://dav.example.com/remote.php/dav/files/user/"
+                  />
+                </label>
+
+                <label class="field">
+                  <span class="field-label">用户名</span>
+                  <input
+                    v-model="webdavUsername"
+                    class="field-input"
+                    type="text"
+                    autocomplete="username"
+                    spellcheck="false"
+                  />
+                </label>
+
+                <label class="field">
+                  <span class="field-label">密码</span>
+                  <input
+                    v-model="webdavPassword"
+                    class="field-input"
+                    type="password"
+                    autocomplete="current-password"
+                    spellcheck="false"
+                  />
+                </label>
+
+                <label class="field">
+                  <span class="field-label">远端文件名</span>
+                  <input
+                    v-model="webdavPath"
+                    class="field-input"
+                    type="text"
+                    placeholder="pdf-llm-backup.json"
+                    spellcheck="false"
+                  />
+                </label>
+
+                <div class="test-row">
+                  <button
+                    class="btn-primary"
+                    type="button"
+                    :disabled="syncBusy"
+                    @click="settings.uploadToWebdav()"
+                  >
+                    {{ syncBusy ? '同步中…' : '备份到 WebDAV' }}
+                  </button>
+                  <button
+                    class="btn-secondary"
+                    type="button"
+                    :disabled="syncBusy"
+                    @click="settings.downloadFromWebdav()"
+                  >
+                    {{ syncBusy ? '同步中…' : '从 WebDAV 恢复' }}
+                  </button>
+                  <span
+                    v-if="syncStatus !== 'idle'"
+                    class="test-result"
+                    :class="syncStatus === 'ok' ? 'ok' : 'fail'"
+                  >
+                    {{ syncMessage }}
+                  </span>
+                </div>
               </section>
             </template>
           </div>

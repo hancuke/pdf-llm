@@ -138,3 +138,31 @@ function localStorageAvailable(): boolean {
     return false
   }
 }
+
+describe('ui store — 划词模式 (select-mode, ADR-0018)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('defaults to off (缩放/平移模式)', () => {
+    const ui = useUiStore()
+    expect(ui.selectMode).toBe(false)
+  })
+
+  it('toggleSelectMode flips the mode on and off', () => {
+    const ui = useUiStore()
+    expect(ui.selectMode).toBe(false)
+    ui.toggleSelectMode()
+    expect(ui.selectMode).toBe(true)
+    ui.toggleSelectMode()
+    expect(ui.selectMode).toBe(false)
+  })
+
+  it('setSelectMode sets an explicit value', () => {
+    const ui = useUiStore()
+    ui.setSelectMode(true)
+    expect(ui.selectMode).toBe(true)
+    ui.setSelectMode(false)
+    expect(ui.selectMode).toBe(false)
+  })
+})
