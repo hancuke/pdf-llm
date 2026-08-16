@@ -58,6 +58,14 @@ function exportConversation() {
       <span class="conv-title">对话</span>
       <div class="conv-header-actions">
         <button
+          class="icon-button"
+          type="button"
+          aria-label="关闭对话"
+          @click="ui.closeConversation()"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <button
           v-if="active"
           class="link-button"
           type="button"

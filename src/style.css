@@ -1291,6 +1291,14 @@ select.field-input {
   border-bottom-color: var(--accent);
   font-weight: 600;
 }
+/* Close button for the mobile bottom drawer (always present, obvious on touch). */
+.panel-close {
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 0 8px 0 4px;
+  color: var(--text);
+  background: var(--hover);
+}
 .panel-body {
   flex: 1;
   overflow: auto;

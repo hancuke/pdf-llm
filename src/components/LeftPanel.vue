@@ -39,6 +39,14 @@ const { leftTab } = storeToRefs(ui)
       >
         生词本
       </button>
+      <button
+        class="icon-button panel-close"
+        type="button"
+        aria-label="关闭面板"
+        @click="ui.closeOutline()"
+      >
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
     </div>
     <div class="panel-body">
       <OutlinePanel v-if="leftTab === 'outline'" />
